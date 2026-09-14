@@ -1,0 +1,1389 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<head th:replace="~{layout :: head('Planilla Semanal de Salarios')}">
+    <title>Planilla Semanal de Salarios</title>
+</head>
+<body>
+
+    <!-- Sidebar Navigation -->
+    <aside th:replace="~{layout :: sidebar('salarios')}"></aside>
+
+    <!-- Main Wrapper with Data Attributes -->
+    <div class="main-wrapper" id="planillaWrapper"
+         th:data-id="${planilla.id}"
+         th:data-desde="${planilla.fechaDesde}"
+         th:data-hasta="${planilla.fechaHasta}">
+        <!-- Header -->
+        <header th:replace="~{layout :: header('Planilla Semanal de Salarios', 'Edición interactiva de haberes y asistencias semanales')}"></header>
+
+        <!-- Flash alerts -->
+        <div th:replace="~{layout :: alerts}"></div>
+
+        <!-- Spreadsheet Title and Actions Header Card -->
+        <div class="card" style="padding: 1.25rem 1.5rem; margin-bottom: 1.5rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1.5rem;">
+                
+                <!-- Planilla Name Input (Editable) -->
+                <div style="display: flex; flex-direction: column; gap: 0.35rem; flex-grow: 1; min-width: 280px; max-width: 400px;">
+                    <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary);" for="planillaNombre">Nombre de la Planilla *</label>
+                    <input type="text" id="planillaNombre" th:value="${planilla.nombre}" required
+                           style="padding: 0.55rem 0.75rem; border-radius: var(--radius-sm); border: 2px solid var(--primary); font-size: 0.95rem; font-weight: 700; font-family: inherit; width: 100%;">
+                </div>
+
+                <!-- Fecha de Pago Input (Editable) -->
+                <div style="display: flex; flex-direction: column; gap: 0.35rem; width: 160px;">
+                    <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); display: flex; align-items: center; gap: 0.35rem;" for="fechaPago">
+                        <i class="fa-solid fa-calendar-day" style="color: var(--primary);"></i> Fecha de Pago *
+                    </label>
+                    <input type="date" id="fechaPago" th:value="${planilla.fechaPago != null ? planilla.fechaPago : (planilla.fechaHasta != null ? planilla.fechaHasta : #temporals.createNow())}" required
+                           style="padding: 0.55rem 0.75rem; border-radius: var(--radius-sm); border: 1.5px solid var(--border-color); font-size: 0.9rem; font-weight: 600; font-family: inherit; width: 100%;">
+                </div>
+
+                <!-- Selector de Carpeta -->
+                <div style="display: flex; flex-direction: column; gap: 0.35rem; width: 185px;">
+                    <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); display: flex; align-items: center; gap: 0.35rem;" for="selectTipoCarpeta">
+                        <i class="fa-solid fa-folder" style="color: var(--primary);"></i> Carpeta *
+                    </label>
+                    <select id="selectTipoCarpeta" onchange="toggleSubcarpetaMes()" 
+                            style="padding: 0.55rem 0.75rem; border-radius: var(--radius-sm); border: 1.5px solid var(--border-color); font-size: 0.88rem; font-weight: 600; font-family: inherit; width: 100%; background: #fff;">
+                        <option value="JORNALEROS" th:selected="${planilla.tipoCarpeta == 'JORNALEROS' || planilla.tipoCarpeta == null}">Personales Jornaleros</option>
+                        <option value="MENSUALEROS" th:selected="${planilla.tipoCarpeta == 'MENSUALEROS'}">Personales Mensualeros</option>
+                    </select>
+                </div>
+
+                <!-- Selector de Sub-carpeta Mes (Solo para Mensualeros) -->
+                <div id="containerSubcarpetaMes" style="display: flex; flex-direction: column; gap: 0.35rem; width: 150px;" th:styleappend="${planilla.tipoCarpeta == 'MENSUALEROS' ? '' : 'display: none;'}">
+                    <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); display: flex; align-items: center; gap: 0.35rem;" for="selectSubcarpetaMes">
+                        <i class="fa-solid fa-folder-open" style="color: #f59e0b;"></i> Sub-carpeta Mes *
+                    </label>
+                    <select id="selectSubcarpetaMes" 
+                            style="padding: 0.55rem 0.75rem; border-radius: var(--radius-sm); border: 1.5px solid #f59e0b; font-size: 0.88rem; font-weight: 700; font-family: inherit; width: 100%; background: #fffbeb;">
+                        <option value="ENERO" th:selected="${planilla.subcarpetaMes == 'ENERO'}">Enero</option>
+                        <option value="FEBRERO" th:selected="${planilla.subcarpetaMes == 'FEBRERO'}">Febrero</option>
+                        <option value="MARZO" th:selected="${planilla.subcarpetaMes == 'MARZO'}">Marzo</option>
+                        <option value="ABRIL" th:selected="${planilla.subcarpetaMes == 'ABRIL'}">Abril</option>
+                        <option value="MAYO" th:selected="${planilla.subcarpetaMes == 'MAYO'}">Mayo</option>
+                        <option value="JUNIO" th:selected="${planilla.subcarpetaMes == 'JUNIO'}">Junio</option>
+                        <option value="JULIO" th:selected="${planilla.subcarpetaMes == 'JULIO'}">Julio</option>
+                        <option value="AGOSTO" th:selected="${planilla.subcarpetaMes == 'AGOSTO'}">Agosto</option>
+                        <option value="SETIEMBRE" th:selected="${planilla.subcarpetaMes == 'SETIEMBRE' || planilla.subcarpetaMes == 'SEPTIEMBRE'}">Setiembre</option>
+                        <option value="OCTUBRE" th:selected="${planilla.subcarpetaMes == 'OCTUBRE'}">Octubre</option>
+                        <option value="NOVIEMBRE" th:selected="${planilla.subcarpetaMes == 'NOVIEMBRE'}">Noviembre</option>
+                        <option value="DICIEMBRE" th:selected="${planilla.subcarpetaMes == 'DICIEMBRE'}">Diciembre</option>
+                    </select>
+                </div>
+
+                <!-- Range Details & Save button -->
+                <div style="display: flex; align-items: center; gap: 1.5rem; text-align: right;">
+                    <div>
+                        <p style="font-size: 0.8rem; color: var(--text-secondary); margin: 0 0 0.15rem 0; font-weight: 500;">Periodo de Liquidación:</p>
+                        <h4 style="margin: 0; color: var(--dark); font-weight: 700;" 
+                            th:text="'Del ' + ${#temporals.format(planilla.fechaDesde, 'dd/MM/yyyy')} + ' al ' + ${#temporals.format(planilla.fechaHasta, 'dd/MM/yyyy')}">Del 20/07/2026 al 26/07/2026</h4>
+                    </div>
+
+                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                        <a href="/salarios" class="btn btn-secondary"><i class="fa-solid fa-arrow-left"></i> Volver</a>
+                        <a th:if="${planilla.id != null}" th:href="@{/salarios/recibos/pdf/{id}(id=${planilla.id})}" class="btn" style="background-color: #0284c7; color: white;" target="_blank" title="Descargar Recibos de Salario en PDF">
+                            <i class="fa-solid fa-file-invoice"></i> Descargar Recibos PDF
+                        </a>
+                        <button type="button" class="btn btn-success" id="btnSaveSpreadsheet" onclick="saveSpreadsheetToServer()" style="background-color: #107c41; border-color: #107c41;">
+                            <i class="fa-solid fa-floppy-disk"></i> Guardar Planilla
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Search filter bar and Actions (Agregar Personal + Checklist Dropdown) -->
+        <div style="margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; background: #fff; padding: 0.75rem 1rem; border-radius: var(--radius-sm); box-shadow: var(--shadow-sm); border: 1px solid var(--border-color);">
+            
+            <!-- Search Text Box -->
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <label style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); display: flex; align-items: center; gap: 0.35rem;" for="filtroNombre">
+                    <i class="fa-solid fa-magnifying-glass" style="color: var(--primary);"></i> Buscar Personal:
+                </label>
+                <input type="text" id="filtroNombre" oninput="filtrarPorNombre()" placeholder="Buscar por nombres o cédulas (ej: amin, cesar, 3318203)..." 
+                       style="padding: 0.45rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); font-size: 0.85rem; width: 340px; font-family: inherit; outline: none;">
+            </div>
+
+            <!-- Actions: Agregar Personal + Checkbox Dropdown -->
+            <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+                
+                <!-- Botón Agregar Personal -->
+                <button type="button" class="btn btn-primary" onclick="openAddPersonalModal()" 
+                        style="display: flex; align-items: center; gap: 0.45rem; font-size: 0.85rem; font-weight: 600; padding: 0.45rem 0.85rem; border-radius: var(--radius-sm); box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                    <i class="fa-solid fa-user-plus"></i> Agregar Personal
+                </button>
+
+                <!-- Checkbox Dropdown Menu -->
+                <div class="dropdown-checklist" style="position: relative; display: inline-block;">
+                    <button type="button" class="btn btn-secondary" onclick="toggleChecklistDropdown(event)" 
+                            style="background-color: #f8fafc; color: #334155; border: 1px solid #cbd5e1; display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; font-weight: 600; padding: 0.45rem 0.75rem; border-radius: var(--radius-sm); cursor: pointer; transition: all 0.2s;">
+                        <i class="fa-solid fa-users-gear" style="color: #64748b;"></i> Seleccionar Personal (<span id="selectedCount">0</span>) <i class="fa-solid fa-chevron-down" style="font-size: 0.75rem;"></i>
+                    </button>
+                    <div id="checklistMenu" style="display: none; position: absolute; top: 105%; right: 0; z-index: 1000; background: #fff; border: 1px solid #cbd5e1; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05); border-radius: var(--radius-sm); width: 320px; max-height: 350px; overflow-y: auto; padding: 0.75rem;">
+                        <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.5rem; margin-bottom: 0.5rem;">
+                            <button type="button" onclick="selectAllEmployees(true)" style="background: none; border: none; color: var(--primary); font-size: 0.75rem; font-weight: 700; cursor: pointer;">Seleccionar Todos</button>
+                            <button type="button" onclick="selectAllEmployees(false)" style="background: none; border: none; color: #ef4444; font-size: 0.75rem; font-weight: 700; cursor: pointer;">Desmarcar Todos</button>
+                        </div>
+                        <div id="checklistItems" style="display: flex; flex-direction: column; gap: 0.35rem; max-height: 270px; overflow-y: auto;">
+                            <!-- Populate dynamically -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+        </div>
+
+        <!-- Spreadsheet Grid Table -->
+        <div class="card" style="padding: 0; overflow: hidden; margin-bottom: 2rem; box-shadow: var(--shadow-md);">
+            <div style="overflow-x: auto; max-width: 100%;">
+                <table class="excel-table" style="width: 100%; border-collapse: collapse; min-width: 1800px; text-align: center; font-size: 0.82rem; font-family: 'Inter', sans-serif;">
+                    <thead>
+                        <!-- Subheader labels -->
+                        <tr style="font-weight: bold; border-bottom: 2px solid #cbd5e1; color: #fff; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">
+                            <th colspan="3" style="background-color: #f57c00; border: 1px solid #e65100; padding: 0.5rem;">Datos Personales</th>
+                            <th colspan="7" style="background-color: #e64a19; border: 1px solid #bf360c; padding: 0.5rem;">Asistencia Semanal</th>
+                            <th colspan="3" style="background-color: #d84315; border: 1px solid #ad1457; padding: 0.5rem;">Cálculo Diario y Domingos</th>
+                            <th colspan="8" style="background-color: #ef6c00; border: 1px solid #e65100; padding: 0.5rem;">Horas Extras Semanales</th>
+                            <th colspan="9" style="background-color: #558b2f; border: 1px solid #33691e; padding: 0.5rem;">Liquidación y Descuentos</th>
+                            <th colspan="2" style="background-color: #fbc02d; border: 1px solid #f57f17; padding: 0.5rem; color: #37474f;">Pago Neto</th>
+                        </tr>
+                        
+                        <!-- Main Header Column Names -->
+                        <tr style="background-color: #f8fafc; border-bottom: 2px solid #cbd5e1; font-weight: 600; color: #475569; font-size: 0.75rem;">
+                            <th style="padding: 0.75rem 0.25rem; border: 1px solid #cbd5e1; width: 100px;">Cotizante</th>
+                            <th style="padding: 0.75rem 0.5rem; border: 1px solid #cbd5e1; text-align: left; width: 220px;">Nombre y Apellido</th>
+                            <th style="padding: 0.75rem 0.25rem; border: 1px solid #cbd5e1; width: 90px;">F. Ingreso</th>
+                            
+                            <!-- Asistencia -->
+                            <th style="border: 1px solid #cbd5e1; width: 40px; background-color: #fbe9e7;">LU</th>
+                            <th style="border: 1px solid #cbd5e1; width: 40px; background-color: #fbe9e7;">MA</th>
+                            <th style="border: 1px solid #cbd5e1; width: 40px; background-color: #fbe9e7;">MIE</th>
+                            <th style="border: 1px solid #cbd5e1; width: 40px; background-color: #fbe9e7;">JU</th>
+                            <th style="border: 1px solid #cbd5e1; width: 40px; background-color: #fbe9e7;">VI</th>
+                            <th style="border: 1px solid #cbd5e1; width: 40px; background-color: #fbe9e7;">SA</th>
+                            <th style="border: 1px solid #cbd5e1; width: 55px; background-color: #fbe9e7; font-weight: bold;">T. DIAS</th>
+                            
+                            <!-- Cálculo Diario -->
+                            <th style="border: 1px solid #cbd5e1; width: 90px; background-color: #fbe9e7; font-weight: bold;">JORNAL</th>
+                            <th style="border: 1px solid #cbd5e1; width: 40px; background-color: #fbe9e7;">Do</th>
+                            <th style="border: 1px solid #cbd5e1; width: 95px; background-color: #fbe9e7; font-weight: bold;">IMP. DOMINGO</th>
+                            
+                            <!-- Horas Extras -->
+                            <th style="border: 1px solid #cbd5e1; width: 40px; background-color: #fff3e0;">LU</th>
+                            <th style="border: 1px solid #cbd5e1; width: 40px; background-color: #fff3e0;">MA</th>
+                            <th style="border: 1px solid #cbd5e1; width: 40px; background-color: #fff3e0;">MIE</th>
+                            <th style="border: 1px solid #cbd5e1; width: 40px; background-color: #fff3e0;">JU</th>
+                            <th style="border: 1px solid #cbd5e1; width: 40px; background-color: #fff3e0;">VI</th>
+                            <th style="border: 1px solid #cbd5e1; width: 40px; background-color: #fff3e0;">SA</th>
+                            <th style="border: 1px solid #cbd5e1; width: 55px; background-color: #fff3e0; font-weight: bold;">T.HORAS</th>
+                            <th style="border: 1px solid #cbd5e1; width: 110px; background-color: #fff3e0; font-weight: bold;">Hora extra diurna</th>
+                            
+                            <!-- Liquidación -->
+                            <th style="border: 1px solid #cbd5e1; width: 85px; background-color: #f1f8e9;">cant. hr. sem</th>
+                            <th style="border: 1px solid #cbd5e1; width: 105px; background-color: #f1f8e9; font-weight: bold;">Salario Basico</th>
+                            <th style="border: 1px solid #cbd5e1; width: 90px; background-color: #f1f8e9; font-weight: bold;">I.P.S (9%)</th>
+                            <th style="border: 1px solid #cbd5e1; width: 115px; background-color: #f1f8e9;">Anticipo de Salario</th>
+                            <th style="border: 1px solid #cbd5e1; width: 95px; background-color: #f1f8e9;">Gratificacion</th>
+                            <th style="border: 1px solid #cbd5e1; width: 110px; background-color: #f1f8e9;">metodo de pago</th>
+                            <th style="border: 1px solid #cbd5e1; width: 85px; background-color: #f1f8e9;">Embargo</th>
+                            <th style="border: 1px solid #cbd5e1; width: 130px; background-color: #f1f8e9;">Complemento Salarial</th>
+                            
+                            <!-- Pago Neto splits -->
+                            <th style="border: 1px solid #cbd5e1; width: 110px; background-color: #fffde7; font-weight: bold; color: #263238;">IMP. NETO TARJETA</th>
+                            <th style="border: 1px solid #cbd5e1; width: 110px; background-color: #fffde7; font-weight: bold; color: #263238;">IMP. Tesoreria</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Spreadsheet editable rows -->
+                        <tr class="planilla-row" th:each="d : ${planilla.detalles}" 
+                            th:data-id="${d.id}" th:data-cedula="${d.cedula}" th:data-nombre="${d.nombre}"
+                            style="border-bottom: 1px solid #cbd5e1; background-color: #fff;">
+                            
+                            <!-- Cotizante dropdown selector + Quitar empleado -->
+                            <td style="border: 1px solid #cbd5e1; padding: 0.1rem;">
+                                <div style="display: flex; align-items: center; justify-content: space-between; height: 100%; padding: 0 0.2rem;">
+                                    <select class="excel-input select-cotizante" onchange="recalcularTotales()" style="border: none; background: transparent; width: calc(100% - 18px); height: 100%; outline: none; font-size: 0.8rem; text-align: center; text-transform: uppercase;">
+                                        <option value="jornalero" th:selected="${d.cotizante == 'jornalero'}">Jornalero</option>
+                                        <option value="general" th:selected="${d.cotizante == 'general'}">General</option>
+                                    </select>
+                                    <button type="button" onclick="removeEmployeeRow(this)" title="Quitar de esta planilla" style="background: none; border: none; color: #94a3b8; cursor: pointer; padding: 0 0.15rem; font-size: 0.75rem; line-height: 1;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#94a3b8'">
+                                        <i class="fa-solid fa-xmark"></i>
+                                    </button>
+                                </div>
+                            </td>
+                            
+                            <!-- Nombre completo -->
+                            <td style="border: 1px solid #cbd5e1; padding: 0.4rem 0.5rem; text-align: left; font-weight: 500; color: #334155; font-size: 0.8rem;" th:text="${d.nombre}">Felipe German</td>
+                            
+                            <!-- F. Ingreso (Cédula) -->
+                            <td class="td-cedula" style="border: 1px solid #cbd5e1; padding: 0.4rem 0.25rem; color: #64748b; font-size: 0.8rem;" th:text="${d.cedula}">3.318.203</td>
+                            
+                            <!-- Asistencia Lunes a Sábado Inputs -->
+                            <td style="border: 1px solid #cbd5e1; background-color: #fff8f6;"><input type="text" inputmode="decimal" class="excel-input asist-lu" th:value="${d.lunes != null ? (d.lunes == T(java.lang.Math).floor(d.lunes) ? #numbers.formatDecimal(d.lunes, 1, 'NONE', 0, 'POINT') : #numbers.formatDecimal(d.lunes, 1, 'NONE', 1, 'POINT')) : '0'}" oninput="recalcularTotales(this)"></td>
+                            <td style="border: 1px solid #cbd5e1; background-color: #fff8f6;"><input type="text" inputmode="decimal" class="excel-input asist-ma" th:value="${d.martes != null ? (d.martes == T(java.lang.Math).floor(d.martes) ? #numbers.formatDecimal(d.martes, 1, 'NONE', 0, 'POINT') : #numbers.formatDecimal(d.martes, 1, 'NONE', 1, 'POINT')) : '0'}" oninput="recalcularTotales(this)"></td>
+                            <td style="border: 1px solid #cbd5e1; background-color: #fff8f6;"><input type="text" inputmode="decimal" class="excel-input asist-mie" th:value="${d.miercoles != null ? (d.miercoles == T(java.lang.Math).floor(d.miercoles) ? #numbers.formatDecimal(d.miercoles, 1, 'NONE', 0, 'POINT') : #numbers.formatDecimal(d.miercoles, 1, 'NONE', 1, 'POINT')) : '0'}" oninput="recalcularTotales(this)"></td>
+                            <td style="border: 1px solid #cbd5e1; background-color: #fff8f6;"><input type="text" inputmode="decimal" class="excel-input asist-ju" th:value="${d.jueves != null ? (d.jueves == T(java.lang.Math).floor(d.jueves) ? #numbers.formatDecimal(d.jueves, 1, 'NONE', 0, 'POINT') : #numbers.formatDecimal(d.jueves, 1, 'NONE', 1, 'POINT')) : '0'}" oninput="recalcularTotales(this)"></td>
+                            <td style="border: 1px solid #cbd5e1; background-color: #fff8f6;"><input type="text" inputmode="decimal" class="excel-input asist-vi" th:value="${d.viernes != null ? (d.viernes == T(java.lang.Math).floor(d.viernes) ? #numbers.formatDecimal(d.viernes, 1, 'NONE', 0, 'POINT') : #numbers.formatDecimal(d.viernes, 1, 'NONE', 1, 'POINT')) : '0'}" oninput="recalcularTotales(this)"></td>
+                            <td style="border: 1px solid #cbd5e1; background-color: #fff8f6;"><input type="text" inputmode="decimal" class="excel-input asist-sa" th:value="${d.sabado != null ? (d.sabado == T(java.lang.Math).floor(d.sabado) ? #numbers.formatDecimal(d.sabado, 1, 'NONE', 0, 'POINT') : #numbers.formatDecimal(d.sabado, 1, 'NONE', 1, 'POINT')) : '0'}" oninput="recalcularTotales(this)"></td>
+                            
+                            <!-- Total Días (now editable input) -->
+                            <td style="border: 1px solid #cbd5e1; background-color: #fbe9e7; font-weight: bold; color: #c23b22;">
+                                <input type="text" inputmode="decimal" class="excel-input td-t-dias" th:value="${d.totalDias != null ? (d.totalDias == T(java.lang.Math).floor(d.totalDias) ? #numbers.formatDecimal(d.totalDias, 1, 'NONE', 0, 'POINT') : #numbers.formatDecimal(d.totalDias, 1, 'NONE', 1, 'POINT')) : '0'}" oninput="recalcularTotales(this)" style="font-weight: bold; color: #c23b22;">
+                            </td>
+                            
+                            <!-- Jornal editable input -->
+                            <td style="border: 1px solid #cbd5e1; font-weight: bold; background-color: #fff8f6; color: #000;">
+                                <input type="text" inputmode="decimal" class="excel-input input-jornal" th:value="${d.jornal != null ? (d.jornal == T(java.lang.Math).floor(d.jornal) ? #numbers.formatDecimal(d.jornal, 1, 'NONE', 0, 'POINT') : #numbers.formatDecimal(d.jornal, 1, 'NONE', 3, 'POINT')) : '0'}" oninput="recalcularTotales(this)" style="font-weight: bold;">
+                            </td>
+                            
+                            <!-- Do input (Sunday rest/work) -->
+                            <td style="border: 1px solid #cbd5e1; background-color: #fff8f6;"><input type="text" inputmode="decimal" class="excel-input input-do-domingo" th:value="${d.domingo != null ? (d.domingo == T(java.lang.Math).floor(d.domingo) ? #numbers.formatDecimal(d.domingo, 1, 'NONE', 0, 'POINT') : #numbers.formatDecimal(d.domingo, 1, 'NONE', 1, 'POINT')) : '0'}" oninput="recalcularTotales(this)"></td>
+                            
+                            <!-- Importe Domingo (now editable input) -->
+                            <td style="border: 1px solid #cbd5e1; background-color: #ffebee; font-weight: bold; color: #b71c1c;">
+                                <input type="text" inputmode="decimal" class="excel-input td-imp-domingo" th:value="${d.importeDomingo != null ? (d.importeDomingo == T(java.lang.Math).floor(d.importeDomingo) ? #numbers.formatDecimal(d.importeDomingo, 1, 'NONE', 0, 'POINT') : #numbers.formatDecimal(d.importeDomingo, 1, 'NONE', 2, 'POINT')) : '0'}" oninput="recalcularTotales(this)" style="font-weight: bold; color: #b71c1c;">
+                            </td>
+                            
+                            <!-- Horas Extras Lunes a Sábado Inputs -->
+                            <td style="border: 1px solid #cbd5e1; background-color: #fffde7;"><input type="text" inputmode="decimal" class="excel-input he-lu" th:value="${d.heLunes != null ? (d.heLunes == T(java.lang.Math).floor(d.heLunes) ? #numbers.formatDecimal(d.heLunes, 1, 'NONE', 0, 'POINT') : #numbers.formatDecimal(d.heLunes, 1, 'NONE', 1, 'POINT')) : '0'}" oninput="recalcularTotales(this)"></td>
+                            <td style="border: 1px solid #cbd5e1; background-color: #fffde7;"><input type="text" inputmode="decimal" class="excel-input he-ma" th:value="${d.heMartes != null ? (d.heMartes == T(java.lang.Math).floor(d.heMartes) ? #numbers.formatDecimal(d.heMartes, 1, 'NONE', 0, 'POINT') : #numbers.formatDecimal(d.heMartes, 1, 'NONE', 1, 'POINT')) : '0'}" oninput="recalcularTotales(this)"></td>
+                            <td style="border: 1px solid #cbd5e1; background-color: #fffde7;"><input type="text" inputmode="decimal" class="excel-input he-mie" th:value="${d.heMiercoles != null ? (d.heMiercoles == T(java.lang.Math).floor(d.heMiercoles) ? #numbers.formatDecimal(d.heMiercoles, 1, 'NONE', 0, 'POINT') : #numbers.formatDecimal(d.heMiercoles, 1, 'NONE', 1, 'POINT')) : '0'}" oninput="recalcularTotales(this)"></td>
+                            <td style="border: 1px solid #cbd5e1; background-color: #fffde7;"><input type="text" inputmode="decimal" class="excel-input he-jueves" th:value="${d.heJueves != null ? (d.heJueves == T(java.lang.Math).floor(d.heJueves) ? #numbers.formatDecimal(d.heJueves, 1, 'NONE', 0, 'POINT') : #numbers.formatDecimal(d.heJueves, 1, 'NONE', 1, 'POINT')) : '0'}" oninput="recalcularTotales(this)"></td>
+                            <td style="border: 1px solid #cbd5e1; background-color: #fffde7;"><input type="text" inputmode="decimal" class="excel-input he-vi" th:value="${d.heViernes != null ? (d.heViernes == T(java.lang.Math).floor(d.heViernes) ? #numbers.formatDecimal(d.heViernes, 1, 'NONE', 0, 'POINT') : #numbers.formatDecimal(d.heViernes, 1, 'NONE', 1, 'POINT')) : '0'}" oninput="recalcularTotales(this)"></td>
+                            <td style="border: 1px solid #cbd5e1; background-color: #fffde7;"><input type="text" inputmode="decimal" class="excel-input he-sa" th:value="${d.heSabado != null ? (d.heSabado == T(java.lang.Math).floor(d.heSabado) ? #numbers.formatDecimal(d.heSabado, 1, 'NONE', 0, 'POINT') : #numbers.formatDecimal(d.heSabado, 1, 'NONE', 1, 'POINT')) : '0'}" oninput="recalcularTotales(this)"></td>
+                            
+                            <!-- Total Horas Extras (now editable input) -->
+                            <td style="border: 1px solid #cbd5e1; background-color: #fff9c4; font-weight: bold; color: #f57f17;">
+                                <input type="text" inputmode="decimal" class="excel-input td-t-horas" th:value="${d.totalHorasExtras != null ? (d.totalHorasExtras == T(java.lang.Math).floor(d.totalHorasExtras) ? #numbers.formatDecimal(d.totalHorasExtras, 1, 'NONE', 0, 'POINT') : #numbers.formatDecimal(d.totalHorasExtras, 1, 'NONE', 1, 'POINT')) : '0'}" oninput="recalcularTotales(this)" style="font-weight: bold; color: #f57f17;">
+                            </td>
+                            
+
+                            
+
+                            <!-- Importe por Hora Extra (now editable input) -->
+                            <td style="border: 1px solid #cbd5e1; background-color: #fff9c4; font-weight: bold; color: #e65100;">
+                                <input type="text" inputmode="decimal" class="excel-input td-imp-x-hora" th:value="${d.importeHoraExtra != null ? (d.importeHoraExtra == T(java.lang.Math).floor(d.importeHoraExtra) ? #numbers.formatDecimal(d.importeHoraExtra, 1, 'NONE', 0, 'POINT') : #numbers.formatDecimal(d.importeHoraExtra, 1, 'NONE', 2, 'POINT')) : '0'}" oninput="recalcularTotales(this)" style="font-weight: bold; color: #e65100;">
+                            </td>
+                            
+                            <!-- Cantidad horas semanal (now editable input) -->
+                            <td style="border: 1px solid #cbd5e1; background-color: #f1f8e9; font-weight: 500;">
+                                <input type="text" inputmode="decimal" class="excel-input td-cant-hora-sem" th:value="${d.cantidadHoraSem != null ? (d.cantidadHoraSem == T(java.lang.Math).floor(d.cantidadHoraSem) ? #numbers.formatDecimal(d.cantidadHoraSem, 1, 'NONE', 0, 'POINT') : #numbers.formatDecimal(d.cantidadHoraSem, 1, 'NONE', 1, 'POINT')) : '0'}" oninput="recalcularTotales(this)" style="font-weight: 500;">
+                            </td>
+                            
+                            <!-- Gross Salary calculated (now editable input) -->
+                            <td style="border: 1px solid #cbd5e1; background-color: #e8f5e9; font-weight: bold; color: #1b5e20;">
+                                <input type="text" inputmode="decimal" class="excel-input td-gross-pay" th:value="${d.grossPay != null ? (d.grossPay == T(java.lang.Math).floor(d.grossPay) ? #numbers.formatDecimal(d.grossPay, 1, 'NONE', 0, 'POINT') : #numbers.formatDecimal(d.grossPay, 1, 'NONE', 2, 'POINT')) : '0'}" oninput="recalcularTotales(this)" style="font-weight: bold; color: #1b5e20;">
+                            </td>
+                            
+                            <!-- IPS automatic 9% (now editable input) -->
+                            <td style="border: 1px solid #cbd5e1; background-color: #ffebee; font-weight: bold; color: #c62828;">
+                                <input type="text" inputmode="decimal" class="excel-input td-ips" th:value="${d.ips != null ? (d.ips == T(java.lang.Math).floor(d.ips) ? #numbers.formatDecimal(d.ips, 1, 'NONE', 0, 'POINT') : #numbers.formatDecimal(d.ips, 1, 'NONE', 2, 'POINT')) : '0'}" oninput="recalcularTotales(this)" style="font-weight: bold; color: #c62828;">
+                            </td>
+                            
+                            <!-- Desc. manual -->
+                            <td style="border: 1px solid #cbd5e1; background-color: #f9fbf7;"><input type="text" inputmode="decimal" class="excel-input input-desc-manual" th:value="${d.descManual != null ? (d.descManual == T(java.lang.Math).floor(d.descManual) ? #numbers.formatDecimal(d.descManual, 1, 'NONE', 0, 'POINT') : #numbers.formatDecimal(d.descManual, 1, 'NONE', 2, 'POINT')) : '0'}" oninput="recalcularTotales(this)"></td>
+                            
+                            <!-- Colaboracion -->
+                            <td style="border: 1px solid #cbd5e1; background-color: #f9fbf7;"><input type="text" inputmode="decimal" class="excel-input input-colaboracion" th:value="${d.colaboracion != null ? (d.colaboracion == T(java.lang.Math).floor(d.colaboracion) ? #numbers.formatDecimal(d.colaboracion, 1, 'NONE', 0, 'POINT') : #numbers.formatDecimal(d.colaboracion, 1, 'NONE', 2, 'POINT')) : '0'}" oninput="recalcularTotales(this)"></td>
+                            
+                            <!-- Metodo de Pago dropdown -->
+                            <td style="border: 1px solid #cbd5e1; padding: 0.1rem; background-color: #f9fbf7;">
+                                <select class="excel-input select-metodo-pago" onchange="recalcularTotales(this)" style="border: none; background: transparent; width: 100%; height: 100%; outline: none; font-size: 0.8rem; text-align: center; text-transform: uppercase;">
+                                    <option value="EFECTIVO" th:selected="${d.metodoPago == 'EFECTIVO'}">Efectivo</option>
+                                    <option value="BANCO" th:selected="${d.metodoPago == 'BANCO'}">Banco</option>
+                                    <option value="CHEQUE" th:selected="${d.metodoPago == 'CHEQUE'}">Cheque</option>
+                                </select>
+                            </td>
+                            
+                            <!-- descuentos -->
+                            <td style="border: 1px solid #cbd5e1; background-color: #f9fbf7;"><input type="text" inputmode="decimal" class="excel-input input-descuentos" th:value="${d.descuentos != null ? (d.descuentos == T(java.lang.Math).floor(d.descuentos) ? #numbers.formatDecimal(d.descuentos, 1, 'NONE', 0, 'POINT') : #numbers.formatDecimal(d.descuentos, 1, 'NONE', 2, 'POINT')) : '0'}" oninput="recalcularTotales(this)"></td>
+                            
+                            <!-- Anticipo -->
+                            <td style="border: 1px solid #cbd5e1; background-color: #f9fbf7;"><input type="text" inputmode="decimal" class="excel-input input-anticipo" th:value="${d.anticipo != null ? (d.anticipo == T(java.lang.Math).floor(d.anticipo) ? #numbers.formatDecimal(d.anticipo, 1, 'NONE', 0, 'POINT') : #numbers.formatDecimal(d.anticipo, 1, 'NONE', 2, 'POINT')) : '0'}" oninput="recalcularTotales(this)"></td>
+                            
+                            <!-- Split payouts (Card vs Cash) (now editable inputs) -->
+                            <td style="border: 1px solid #cbd5e1; background-color: #fffde7; font-weight: bold; color: #37474f;">
+                                <input type="text" inputmode="decimal" class="excel-input td-neto-tarjeta" th:value="${d.netoTarjeta != null ? (d.netoTarjeta == T(java.lang.Math).floor(d.netoTarjeta) ? #numbers.formatDecimal(d.netoTarjeta, 1, 'NONE', 0, 'POINT') : #numbers.formatDecimal(d.netoTarjeta, 1, 'NONE', 2, 'POINT')) : '0'}" oninput="recalcularTotales(this)" style="font-weight: bold; color: #37474f;">
+                            </td>
+                            <td style="border: 1px solid #cbd5e1; background-color: #fffde7; font-weight: bold; color: #37474f;">
+                                <input type="text" inputmode="decimal" class="excel-input td-imp-tesoreria" th:value="${d.netoTesoreria != null ? (d.netoTesoreria == T(java.lang.Math).floor(d.netoTesoreria) ? #numbers.formatDecimal(d.netoTesoreria, 1, 'NONE', 0, 'POINT') : #numbers.formatDecimal(d.netoTesoreria, 1, 'NONE', 2, 'POINT')) : '0'}" oninput="recalcularTotales(this)" style="font-weight: bold; color: #37474f;">
+                            </td>
+                        </tr>
+
+                        
+                        <!-- Totales Bottom Row (Green footer) -->
+                        <tr id="filaTotales" style="background-color: #81c784; border-top: 2px solid #2e7d32; font-weight: bold; color: #1b5e20;">
+                            <td colspan="3" style="padding: 0.65rem; border: 1px solid #2e7d32; text-align: left; font-weight: 800;">TOTALES</td>
+                            
+                            <!-- Asistencia sums -->
+                            <td colspan="6" style="border: 1px solid #2e7d32;"></td>
+                            <td id="total-t-dias" style="border: 1px solid #2e7d32;">0.0</td>
+                            
+                            <!-- Jornal / Do column sums -->
+                            <td style="border: 1px solid #2e7d32;"></td>
+                            <td style="border: 1px solid #2e7d32;"></td>
+                            <td id="total-imp-domingo" style="border: 1px solid #2e7d32;">0 Gs.</td>
+                            
+                            <!-- Horas Extras sums -->
+                            <td colspan="6" style="border: 1px solid #2e7d32;"></td>
+                            <td id="total-t-horas" style="border: 1px solid #2e7d32;">0.0</td>
+                            <td style="border: 1px solid #2e7d32;"></td>
+                            
+                            <!-- Liquidacion sums -->
+                            <td style="border: 1px solid #2e7d32;"></td>
+                            <td id="total-gross-pay" style="border: 1px solid #2e7d32;">0 Gs.</td>
+                            <td id="total-ips" style="border: 1px solid #2e7d32;">0 Gs.</td>
+                            <td style="border: 1px solid #2e7d32;"></td>
+                            <td style="border: 1px solid #2e7d32;"></td>
+                            <td style="border: 1px solid #2e7d32;"></td>
+                            <td style="border: 1px solid #2e7d32;"></td>
+                            <td style="border: 1px solid #2e7d32;"></td>
+                            
+                            <!-- Payout sums -->
+                            <td id="total-neto-tarjeta" style="border: 1px solid #2e7d32;">0 Gs.</td>
+                            <td id="total-tesoreria" style="border: 1px solid #2e7d32;">0 Gs.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Hidden Store for registered employees from backend -->
+    <div id="registeredEmployeesStore" style="display: none;">
+        <div th:each="emp : ${todosEmpleados}" 
+             class="reg-emp-data"
+             th:data-cedula="${emp.cedula}"
+             th:data-nombre="${emp.nombre}"
+             th:data-normal="${emp.pagoHoraNormal}"
+             th:data-extra="${emp.pagoHoraExtra}"></div>
+    </div>
+
+    <!-- Modal para Agregar Personal a la Planilla -->
+    <div id="addPersonalModal" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.65); z-index: 9999; justify-content: center; align-items: center; padding: 1rem; backdrop-filter: blur(3px);">
+        <div style="background: #fff; width: 100%; max-width: 620px; border-radius: var(--radius-md); box-shadow: var(--shadow-lg); overflow: hidden; display: flex; flex-direction: column; max-height: 90vh; animation: fadeIn 0.2s ease-out;">
+            
+            <!-- Modal Header -->
+            <div style="padding: 1.15rem 1.5rem; background-color: var(--primary); color: #fff; display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700; display: flex; align-items: center; gap: 0.6rem; color: #fff;">
+                    <i class="fa-solid fa-user-plus"></i> Agregar Personal a la Planilla
+                </h3>
+                <button type="button" onclick="closeAddPersonalModal()" style="background: transparent; border: none; color: #fff; font-size: 1.35rem; cursor: pointer; line-height: 1; padding: 0.25rem;" title="Cerrar">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Modal Tabs -->
+            <div style="display: flex; border-bottom: 1px solid var(--border-color); background: #f8fafc;">
+                <button type="button" id="tabBtnRegistrados" onclick="switchModalTab('registrados')" style="flex: 1; padding: 0.75rem 1rem; border: none; background: #fff; font-weight: 700; font-size: 0.85rem; color: var(--primary); border-bottom: 2px solid var(--primary); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.4rem;">
+                    <i class="fa-solid fa-users"></i> Personal Registrado
+                </button>
+                <button type="button" id="tabBtnNuevo" onclick="switchModalTab('nuevo')" style="flex: 1; padding: 0.75rem 1rem; border: none; background: transparent; font-weight: 600; font-size: 0.85rem; color: var(--text-secondary); border-bottom: 2px solid transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.4rem;">
+                    <i class="fa-solid fa-user-plus"></i> Registrar Nuevo Empleado
+                </button>
+            </div>
+
+            <div style="padding: 1.25rem 1.5rem; overflow-y: auto; flex-grow: 1;">
+                
+                <!-- Tab 1: Personal Registrado en el Sistema -->
+                <div id="modalTabRegistrados">
+                    <div style="margin-bottom: 0.85rem; position: relative;">
+                        <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); color: var(--text-secondary); font-size: 0.85rem;"></i>
+                        <input type="text" id="modalSearchPersonal" oninput="filterModalEmployees()" placeholder="Buscar empleado por nombre o cédula..." 
+                               style="width: 100%; padding: 0.5rem 0.75rem 0.5rem 2.2rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); font-size: 0.85rem; outline: none; font-family: inherit;">
+                    </div>
+
+                    <div id="modalEmployeesList" style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 320px; overflow-y: auto; padding-right: 0.25rem;">
+                        <!-- Dynamically loaded -->
+                    </div>
+                </div>
+
+                <!-- Tab 2: Crear Nuevo Empleado -->
+                <div id="modalTabNuevo" style="display: none;">
+                    <form id="formQuickAddEmployee" onsubmit="handleQuickCreateEmployee(event)" style="display: flex; flex-direction: column; gap: 1rem;">
+                        <div>
+                            <label style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.25rem; display: block;" for="quickCedula">C.I. Nº / Cédula *</label>
+                            <input type="text" id="quickCedula" required placeholder="Ej. 3.456.789" 
+                                   style="width: 100%; padding: 0.5rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); font-size: 0.9rem; font-family: inherit;">
+                        </div>
+                        <div>
+                            <label style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.25rem; display: block;" for="quickNombre">Nombre y Apellido Completo *</label>
+                            <input type="text" id="quickNombre" required placeholder="Ej. Juan Pérez" 
+                                   style="width: 100%; padding: 0.5rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); font-size: 0.9rem; font-family: inherit;">
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                            <div>
+                                <label style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.25rem; display: block;" for="quickJornal">Jornal Diario (Gs.) *</label>
+                                <input type="text" inputmode="decimal" id="quickJornal" required value="120000" placeholder="Ej. 133333.333 o 120000"
+                                       style="width: 100%; padding: 0.5rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); font-size: 0.9rem; font-family: inherit;">
+                            </div>
+                            <div>
+                                <label style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.25rem; display: block;" for="quickCotizante">Tipo de Cotizante</label>
+                                <select id="quickCotizante" style="width: 100%; padding: 0.5rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); font-size: 0.9rem; font-family: inherit;">
+                                    <option value="jornalero">Jornalero</option>
+                                    <option value="general">General</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
+                            <button type="button" class="btn btn-secondary" onclick="closeAddPersonalModal()">Cancelar</button>
+                            <button type="submit" class="btn btn-success" style="background-color: var(--success); border-color: var(--success); display: flex; align-items: center; gap: 0.35rem;">
+                                <i class="fa-solid fa-plus"></i> Agregar a la Planilla
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+            </div>
+
+            <!-- Modal Footer -->
+            <div style="padding: 0.85rem 1.5rem; background: #f8fafc; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end;">
+                <button type="button" class="btn btn-secondary" onclick="closeAddPersonalModal()">Cerrar</button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Layout Scripts -->
+    <th:block th:replace="~{layout :: scripts}"></th:block>
+
+    <!-- Core Spreadsheet Javascript Engine -->
+    <script>
+        // Page initialization
+        document.addEventListener('DOMContentLoaded', () => {
+            recalcularTotales();
+            buildEmployeeChecklist();
+            toggleSubcarpetaMes();
+        });
+
+        function toggleSubcarpetaMes() {
+            const selectTipo = document.getElementById('selectTipoCarpeta');
+            const containerSub = document.getElementById('containerSubcarpetaMes');
+            if (selectTipo && containerSub) {
+                if (selectTipo.value === 'MENSUALEROS') {
+                    containerSub.style.display = 'flex';
+                } else {
+                    containerSub.style.display = 'none';
+                }
+            }
+        }
+
+        function formatGs(val) {
+            return new Intl.NumberFormat('de-DE').format(Math.round(val)) + ' Gs.';
+        }
+
+        function parseInput(input) {
+            if (!input) return 0;
+            let val = input.value !== undefined ? input.value : input;
+            if (val === null || val === undefined || val === '') return 0;
+            if (typeof val === 'number') return isNaN(val) ? 0 : val;
+            val = String(val).trim();
+            if (val === '') return 0;
+
+            // Manejar comas y puntos adecuadamente (ej: 133.333,333 o 133333,333)
+            if (val.indexOf('.') !== -1 && val.indexOf(',') !== -1) {
+                if (val.lastIndexOf(',') > val.lastIndexOf('.')) {
+                    // Formato latino: 133.333,333 -> 133333.333
+                    val = val.replace(/\./g, '').replace(',', '.');
+                } else {
+                    // Formato anglosajón: 133,333.333 -> 133333.333
+                    val = val.replace(/,/g, '');
+                }
+            } else if (val.indexOf(',') !== -1) {
+                // Coma decimal: 133333,333 -> 133333.333
+                val = val.replace(',', '.');
+            } else if (val.indexOf('.') !== -1) {
+                // Solo puntos: verificar si son separadores de miles
+                const parts = val.split('.');
+                if (parts.length > 2) {
+                    // Múltiples puntos: 1.000.000 -> 1000000
+                    val = val.replace(/\./g, '');
+                } else if (parts.length === 2 && parts[1].length === 3 && parts[0].length >= 1) {
+                    // Ejemplo: 40.000 o 715.000 -> separador de miles
+                    val = val.replace(/\./g, '');
+                }
+            }
+            let v = parseFloat(val);
+            return isNaN(v) ? 0 : v;
+        }
+
+        function recalcularFila(row, triggerElement) {
+            if (!row) return;
+
+            const jornal = parseInput(row.querySelector('.input-jornal'));
+            const doDomingo = parseInput(row.querySelector('.input-do-domingo'));
+            const inputImpDomingo = row.querySelector('.td-imp-domingo');
+            const inputTDias = row.querySelector('.td-t-dias');
+            const inputTHoras = row.querySelector('.td-t-horas');
+            const inputImpXHora = row.querySelector('.td-imp-x-hora');
+            const inputGrossPay = row.querySelector('.td-gross-pay');
+            const inputIps = row.querySelector('.td-ips');
+            const inputNetoTarjeta = row.querySelector('.td-neto-tarjeta');
+            const inputNetoTesoreria = row.querySelector('.td-imp-tesoreria');
+
+            // 1. T.DIAS
+            // Se calcula sumando LU..SA solo si el cambio fue en asistencia
+            if (triggerElement && (
+                triggerElement.classList.contains('asist-lu') ||
+                triggerElement.classList.contains('asist-ma') ||
+                triggerElement.classList.contains('asist-mie') ||
+                triggerElement.classList.contains('asist-ju') ||
+                triggerElement.classList.contains('asist-vi') ||
+                triggerElement.classList.contains('asist-sa')
+            )) {
+                const lu = parseInput(row.querySelector('.asist-lu'));
+                const ma = parseInput(row.querySelector('.asist-ma'));
+                const mie = parseInput(row.querySelector('.asist-mie'));
+                const ju = parseInput(row.querySelector('.asist-ju'));
+                const vi = parseInput(row.querySelector('.asist-vi'));
+                const sa = parseInput(row.querySelector('.asist-sa'));
+                const tDiasCalculated = lu + ma + mie + ju + vi + sa;
+                inputTDias.value = tDiasCalculated % 1 === 0 ? tDiasCalculated.toFixed(0) : tDiasCalculated.toFixed(1);
+            }
+
+            // 2. IMP. DOMINGO
+            // Si el usuario edita directamente IMP. DOMINGO, lo marcamos como manual y NO lo sobreescribimos.
+            // Solo se recalcula automáticamente si se modificó 'Do' o 'Jornal' (y el campo no fue fijado manualmente).
+            if (triggerElement === inputImpDomingo) {
+                inputImpDomingo.dataset.manual = "true";
+            } else if (triggerElement && triggerElement.classList && triggerElement.classList.contains('input-do-domingo')) {
+                const impDomingoCalculated = (jornal / 4.25) * doDomingo;
+                inputImpDomingo.value = Math.round(impDomingoCalculated);
+                delete inputImpDomingo.dataset.manual;
+            } else if (triggerElement && triggerElement.classList && triggerElement.classList.contains('input-jornal') && inputImpDomingo.dataset.manual !== "true") {
+                const impDomingoCalculated = (jornal / 4.25) * doDomingo;
+                inputImpDomingo.value = Math.round(impDomingoCalculated);
+            }
+
+            // 3. T.HORAS
+            // Se calcula sumando Horas Extras LU..SA
+            if (triggerElement && (
+                triggerElement.classList.contains('he-lu') ||
+                triggerElement.classList.contains('he-ma') ||
+                triggerElement.classList.contains('he-mie') ||
+                triggerElement.classList.contains('he-jueves') ||
+                triggerElement.classList.contains('he-vi') ||
+                triggerElement.classList.contains('he-sa')
+            )) {
+                const heLu = parseInput(row.querySelector('.he-lu'));
+                const heMa = parseInput(row.querySelector('.he-ma'));
+                const heMie = parseInput(row.querySelector('.he-mie'));
+                const heJu = parseInput(row.querySelector('.he-jueves'));
+                const heVi = parseInput(row.querySelector('.he-vi'));
+                const heSa = parseInput(row.querySelector('.he-sa'));
+                const tHorasCalculated = heLu + heMa + heMie + heJu + heVi + heSa;
+                inputTHoras.value = tHorasCalculated % 1 === 0 ? tHorasCalculated.toFixed(0) : tHorasCalculated.toFixed(1);
+            }
+
+            // 4. HORA EXTRA DIURNA (IMP. X HORA)
+            // Si el usuario edita directamente este campo, lo marcamos como manual y NO lo sobreescribimos.
+            // Solo se recalcula automáticamente si se modificó el Jornal y el campo no fue editado manualmente.
+            if (triggerElement === inputImpXHora) {
+                inputImpXHora.dataset.manual = "true";
+            } else if (triggerElement && triggerElement.classList && triggerElement.classList.contains('input-jornal') && inputImpXHora.dataset.manual !== "true") {
+                const impXHoraCalculated = (jornal * 1.5) / 8.5;
+                inputImpXHora.value = Math.round(impXHoraCalculated);
+            }
+
+            // 5. CANT.HR.SEM es manual / pre-cargado
+
+            // 6. HE+DT+DO (Salario Básico / Gross Pay)
+            // Se recalcula automáticamente a menos que el usuario esté escribiendo directamente en Salario Básico
+            if (!triggerElement || triggerElement !== inputGrossPay) {
+                const tDiasVal = parseInput(inputTDias);
+                const impDomingoVal = parseInput(inputImpDomingo);
+                const tHorasVal = parseInput(inputTHoras);
+                const impXHoraVal = parseInput(inputImpXHora);
+                const grossPayCalculated = (tDiasVal * jornal) + impDomingoVal + (tHorasVal * impXHoraVal);
+                inputGrossPay.value = Math.round(grossPayCalculated);
+            }
+
+            // 7. IPS (9%) - Calculado sobre Salario Básico + Gratificación + Complemento Salarial
+            const grossPayVal = parseInput(inputGrossPay);
+            const colaboracion = parseInput(row.querySelector('.input-colaboracion'));
+            const anticipo = parseInput(row.querySelector('.input-anticipo'));
+            const baseImponibleIps = grossPayVal + colaboracion + anticipo;
+
+            if (!triggerElement || triggerElement !== inputIps) {
+                const ipsCalculated = Math.round(baseImponibleIps * 0.09);
+                inputIps.value = ipsCalculated;
+            }
+
+            // 8. PAGO NETO (Split Tarjeta vs Tesorería)
+            if (!triggerElement || (triggerElement !== inputNetoTarjeta && triggerElement !== inputNetoTesoreria)) {
+                const ipsVal = parseInput(inputIps);
+                const descManual = parseInput(row.querySelector('.input-desc-manual'));
+                const descuentos = parseInput(row.querySelector('.input-descuentos'));
+
+                const netPay = baseImponibleIps - ipsVal - descManual - descuentos;
+
+                const metodoPago = row.querySelector('.select-metodo-pago').value;
+                if (metodoPago === 'BANCO' || metodoPago === 'CHEQUE') {
+                    inputNetoTarjeta.value = Math.round(netPay);
+                    inputNetoTesoreria.value = 0;
+                } else {
+                    inputNetoTesoreria.value = Math.round(netPay);
+                    inputNetoTarjeta.value = 0;
+                }
+            }
+        }
+
+        function recalcularTotales(triggerElement) {
+            // Si el evento fue disparado por la edición de un input, solo recalculamos esa fila específica
+            if (triggerElement) {
+                const targetRow = triggerElement.closest ? triggerElement.closest('.planilla-row') : null;
+                if (targetRow) {
+                    recalcularFila(targetRow, triggerElement);
+                }
+            }
+
+            // Sumar los totales de todas las filas para el pie de tabla
+            let sumTDias = 0;
+            let sumImpDomingo = 0;
+            let sumTHoras = 0;
+            let sumGrossPay = 0;
+            let sumIps = 0;
+            let sumNetoTarjeta = 0;
+            let sumTesoreria = 0;
+
+            document.querySelectorAll('.planilla-row').forEach(row => {
+                const tDias = parseInput(row.querySelector('.td-t-dias'));
+                const impDomingo = parseInput(row.querySelector('.td-imp-domingo'));
+                const tHoras = parseInput(row.querySelector('.td-t-horas'));
+                const grossPay = parseInput(row.querySelector('.td-gross-pay'));
+                const ips = parseInput(row.querySelector('.td-ips'));
+                const netoTarjeta = parseInput(row.querySelector('.td-neto-tarjeta'));
+                const impTesoreria = parseInput(row.querySelector('.td-imp-tesoreria'));
+
+                sumTDias += tDias;
+                sumImpDomingo += impDomingo;
+                sumTHoras += tHoras;
+                sumGrossPay += grossPay;
+                sumIps += ips;
+                sumNetoTarjeta += netoTarjeta;
+                sumTesoreria += impTesoreria;
+            });
+
+            document.getElementById('total-t-dias').textContent = sumTDias.toFixed(1);
+            document.getElementById('total-imp-domingo').textContent = formatGs(sumImpDomingo);
+            document.getElementById('total-t-horas').textContent = sumTHoras.toFixed(1);
+            document.getElementById('total-gross-pay').textContent = formatGs(sumGrossPay);
+            document.getElementById('total-ips').textContent = formatGs(sumIps);
+            document.getElementById('total-neto-tarjeta').textContent = formatGs(sumNetoTarjeta);
+            document.getElementById('total-tesoreria').textContent = formatGs(sumTesoreria);
+        }
+
+
+        function toggleSubcarpetaMes() {
+            const select = document.getElementById('selectTipoCarpeta');
+            const container = document.getElementById('containerSubcarpetaMes');
+            if (select && container) {
+                if (select.value === 'MENSUALEROS') {
+                    container.style.display = 'flex';
+                } else {
+                    container.style.display = 'none';
+                }
+            }
+        }
+        window.toggleSubcarpetaMes = toggleSubcarpetaMes;
+
+        function autoDetectFolder(val) {
+            if (!val) return;
+            const str = val.toUpperCase();
+            const selectTipo = document.getElementById('selectTipoCarpeta');
+            const selectMes = document.getElementById('selectSubcarpetaMes');
+            const container = document.getElementById('containerSubcarpetaMes');
+
+            if (str.includes('MENSUAL')) {
+                if (selectTipo) selectTipo.value = 'MENSUALEROS';
+                if (container) container.style.display = 'flex';
+            }
+
+            const months = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SETIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'];
+            for (const m of months) {
+                if (str.includes(m)) {
+                    if (selectTipo) selectTipo.value = 'MENSUALEROS';
+                    if (container) container.style.display = 'flex';
+                    if (selectMes) selectMes.value = m;
+                    break;
+                }
+            }
+            if (str.includes('SEPTIEMBRE')) {
+                if (selectTipo) selectTipo.value = 'MENSUALEROS';
+                if (container) container.style.display = 'flex';
+                if (selectMes) selectMes.value = 'SETIEMBRE';
+            }
+        }
+        window.autoDetectFolder = autoDetectFolder;
+
+        function saveSpreadsheetToServer() {
+            try {
+                const wrapper = document.getElementById('planillaWrapper');
+                const planillaIdVal = wrapper ? wrapper.getAttribute('data-id') : null;
+                const planillaId = (planillaIdVal && planillaIdVal !== 'null' && String(planillaIdVal).trim() !== '') ? parseInt(planillaIdVal) : null;
+                const startOfWeek = wrapper ? wrapper.getAttribute('data-desde') : null;
+                const endOfWeek = wrapper ? wrapper.getAttribute('data-hasta') : null;
+                
+                const planillaNombreInput = document.getElementById('planillaNombre');
+                const planillaNombre = planillaNombreInput ? planillaNombreInput.value.trim() : '';
+
+                if (!planillaNombre) {
+                    alert('Por favor ingrese un nombre para la planilla.');
+                    if (planillaNombreInput) planillaNombreInput.focus();
+                    return;
+                }
+
+                const selectTipoCarpeta = document.getElementById('selectTipoCarpeta');
+                let tipoCarpeta = selectTipoCarpeta ? selectTipoCarpeta.value : 'JORNALEROS';
+
+                const selectSubcarpetaMes = document.getElementById('selectSubcarpetaMes');
+                let subcarpetaMes = (tipoCarpeta === 'MENSUALEROS' && selectSubcarpetaMes && selectSubcarpetaMes.value && selectSubcarpetaMes.value.trim() !== '')
+                        ? selectSubcarpetaMes.value.trim().toUpperCase()
+                        : null;
+
+                const fechaPagoInput = document.getElementById('fechaPago');
+                const fechaPago = (fechaPagoInput && fechaPagoInput.value && fechaPagoInput.value.trim() !== '') ? fechaPagoInput.value.trim() : null;
+
+                const detalles = [];
+                document.querySelectorAll('.planilla-row').forEach(row => {
+                    const cedula = row.getAttribute('data-cedula');
+                    const nombre = row.getAttribute('data-nombre');
+
+                    const chk = document.querySelector(`.employee-checklist-chk[data-cedula="${cedula}"]`);
+                    if (chk && !chk.checked) {
+                        return; // Excluido por checklist
+                    }
+
+                    const rowIdVal = row.getAttribute('data-id');
+                    const rowId = (rowIdVal && rowIdVal !== 'null' && String(rowIdVal).trim() !== '') ? parseInt(rowIdVal) : null;
+
+                    const selectCotizante = row.querySelector('.select-cotizante');
+                    const cotizante = selectCotizante ? selectCotizante.value : 'jornalero';
+
+                    const selectMetodo = row.querySelector('.select-metodo-pago');
+                    const metodoPago = selectMetodo ? selectMetodo.value : 'EFECTIVO';
+
+                    const det = {
+                        id: rowId,
+                        cedula: cedula || 'SIN_CEDULA',
+                        nombre: nombre || 'Sin Nombre',
+                        cotizante: cotizante,
+                        lunes: parseInput(row.querySelector('.asist-lu')),
+                        martes: parseInput(row.querySelector('.asist-ma')),
+                        miercoles: parseInput(row.querySelector('.asist-mie')),
+                        jueves: parseInput(row.querySelector('.asist-ju')),
+                        viernes: parseInput(row.querySelector('.asist-vi')),
+                        sabado: parseInput(row.querySelector('.asist-sa')),
+                        domingo: parseInput(row.querySelector('.input-do-domingo')),
+                        jornal: parseInput(row.querySelector('.input-jornal')),
+                        heLunes: parseInput(row.querySelector('.he-lu')),
+                        heMartes: parseInput(row.querySelector('.he-ma')),
+                        heMiercoles: parseInput(row.querySelector('.he-mie')),
+                        heJueves: parseInput(row.querySelector('.he-jueves')),
+                        heViernes: parseInput(row.querySelector('.he-vi')),
+                        heSabado: parseInput(row.querySelector('.he-sa')),
+                        cantidadHoraSem: parseInput(row.querySelector('.td-cant-hora-sem')),
+                        descManual: parseInput(row.querySelector('.input-desc-manual')),
+                        colaboracion: parseInput(row.querySelector('.input-colaboracion')),
+                        metodoPago: metodoPago,
+                        descuentos: parseInput(row.querySelector('.input-descuentos')),
+                        anticipo: parseInput(row.querySelector('.input-anticipo')),
+                        totalDias: parseInput(row.querySelector('.td-t-dias')),
+                        importeDomingo: parseInput(row.querySelector('.td-imp-domingo')),
+                        totalHorasExtras: parseInput(row.querySelector('.td-t-horas')),
+                        importeHoraExtra: parseInput(row.querySelector('.td-imp-x-hora')),
+                        grossPay: parseInput(row.querySelector('.td-gross-pay')),
+                        ips: parseInput(row.querySelector('.td-ips')),
+                        netoTarjeta: parseInput(row.querySelector('.td-neto-tarjeta')),
+                        netoTesoreria: parseInput(row.querySelector('.td-imp-tesoreria'))
+                    };
+                    detalles.push(det);
+                });
+
+                const cabecera = {
+                    id: planillaId,
+                    nombre: planillaNombre,
+                    fechaDesde: startOfWeek,
+                    fechaHasta: endOfWeek,
+                    fechaPago: fechaPago,
+                    tipoCarpeta: tipoCarpeta,
+                    subcarpetaMes: subcarpetaMes,
+                    detalles: detalles
+                };
+
+                const btn = document.getElementById('btnSaveSpreadsheet');
+                const originalHtml = btn.innerHTML;
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando...';
+                btn.disabled = true;
+
+                fetch('/salarios/guardar', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(cabecera)
+                })
+                .then(async response => {
+                    if (response.ok) {
+                        btn.innerHTML = '<i class="fa-solid fa-check"></i> ¡Guardado Exitoso!';
+                        btn.style.backgroundColor = '#2e7d32';
+                        alert('¡Planilla guardada exitosamente!');
+                        window.location.href = '/salarios';
+                    } else {
+                        const errorText = await response.text();
+                        alert('Error al guardar la planilla:\n' + errorText);
+                        btn.innerHTML = originalHtml;
+                        btn.disabled = false;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Fallo de conexión:\n' + error.message);
+                    btn.innerHTML = originalHtml;
+                    btn.disabled = false;
+                });
+            } catch (err) {
+                console.error('Error al preparar guardado:', err);
+                alert('Error al preparar los datos de la planilla: ' + err.message);
+            }
+        }
+        window.saveSpreadsheetToServer = saveSpreadsheetToServer;
+
+        function toggleChecklistDropdown(event) {
+            const menu = document.getElementById('checklistMenu');
+            if (menu.style.display === 'none') {
+                menu.style.display = 'block';
+            } else {
+                menu.style.display = 'none';
+            }
+            if (event) event.stopPropagation();
+        }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            const menu = document.getElementById('checklistMenu');
+            const dropdown = document.querySelector('.dropdown-checklist');
+            if (menu && dropdown && !dropdown.contains(e.target)) {
+                menu.style.display = 'none';
+            }
+        });
+
+        function buildEmployeeChecklist() {
+            const itemsContainer = document.getElementById('checklistItems');
+            if (!itemsContainer) return;
+            itemsContainer.innerHTML = '';
+            
+            const rows = document.querySelectorAll('.planilla-row');
+            
+            rows.forEach((row, index) => {
+                const nombre = row.getAttribute('data-nombre') || "Sin Nombre";
+                const cedula = row.getAttribute('data-cedula') || "";
+                
+                const itemDiv = document.createElement('label');
+                itemDiv.style.display = 'flex';
+                itemDiv.style.alignItems = 'center';
+                itemDiv.style.gap = '0.5rem';
+                itemDiv.style.padding = '0.35rem 0.5rem';
+                itemDiv.style.borderRadius = '4px';
+                itemDiv.style.cursor = 'pointer';
+                itemDiv.style.fontSize = '0.8rem';
+                itemDiv.style.userSelect = 'none';
+                itemDiv.style.transition = 'background-color 0.15s';
+                
+                itemDiv.onmouseover = () => itemDiv.style.backgroundColor = '#f1f5f9';
+                itemDiv.onmouseout = () => itemDiv.style.backgroundColor = 'transparent';
+                
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.checked = true;
+                checkbox.className = 'employee-checklist-chk';
+                checkbox.setAttribute('data-cedula', cedula);
+                checkbox.style.cursor = 'pointer';
+                
+                checkbox.onchange = () => {
+                    applyFilters();
+                };
+                
+                const textSpan = document.createElement('span');
+                textSpan.textContent = `${nombre} (${cedula})`;
+                textSpan.style.color = '#334155';
+                textSpan.style.fontWeight = '500';
+                
+                itemDiv.appendChild(checkbox);
+                itemDiv.appendChild(textSpan);
+                itemsContainer.appendChild(itemDiv);
+            });
+            
+            applyFilters();
+        }
+
+        function selectAllEmployees(checked) {
+            document.querySelectorAll('.employee-checklist-chk').forEach(chk => {
+                chk.checked = checked;
+            });
+            applyFilters();
+        }
+
+        function filtrarPorNombre() {
+            applyFilters();
+        }
+
+        function applyFilters() {
+            // Get search terms
+            const rawQuery = document.getElementById('filtroNombre').value;
+            const terms = rawQuery.split(/[,,;]/).map(t => 
+                t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim()
+            ).filter(t => t.length > 0);
+            
+            // Get unchecked employee cedulas
+            const uncheckedCedulas = new Set();
+            document.querySelectorAll('.employee-checklist-chk').forEach(chk => {
+                if (!chk.checked) {
+                    uncheckedCedulas.add(chk.getAttribute('data-cedula'));
+                }
+            });
+            
+            let checkedCount = 0;
+            const rows = document.querySelectorAll('.planilla-row');
+            
+            rows.forEach(row => {
+                const nombre = (row.getAttribute('data-nombre') || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                const cedula = (row.getAttribute('data-cedula') || "").toLowerCase().trim();
+                const cedulaNoDots = cedula.replace(/\./g, "");
+                
+                // 1. Checklist filter
+                const passesChecklist = !uncheckedCedulas.has(row.getAttribute('data-cedula'));
+                
+                // 2. Search text filter
+                let passesSearch = true;
+                if (terms.length > 0) {
+                    passesSearch = terms.some(term => {
+                        const termNoDots = term.replace(/\./g, "");
+                        return nombre.includes(term) || cedulaNoDots.includes(termNoDots);
+                    });
+                }
+                
+                if (passesChecklist && passesSearch) {
+                    row.style.display = '';
+                    checkedCount++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+            
+            // Update selected count display
+            const total = rows.length;
+            document.getElementById('selectedCount').textContent = `${checkedCount}/${total}`;
+        }
+
+        // ─────────────────────────────────────────────────────────────────────────
+        // Gestión de Agregar Personal (Modal y adición dinámica a la planilla)
+        // ─────────────────────────────────────────────────────────────────────────
+        function getAllRegisteredEmployees() {
+            const list = [];
+            document.querySelectorAll('.reg-emp-data').forEach(el => {
+                const cedula = el.getAttribute('data-cedula');
+                const nombre = el.getAttribute('data-nombre');
+                const pagoHoraNormal = parseFloat(el.getAttribute('data-normal')) || 15000;
+                const pagoHoraExtra = parseFloat(el.getAttribute('data-extra')) || 22500;
+                const jornal = pagoHoraNormal * 8.0;
+                list.push({ cedula, nombre, pagoHoraNormal, pagoHoraExtra, jornal });
+            });
+            return list;
+        }
+
+        function openAddPersonalModal() {
+            const modal = document.getElementById('addPersonalModal');
+            modal.style.display = 'flex';
+            switchModalTab('registrados');
+            updateAvailableEmployeesList();
+            document.getElementById('modalSearchPersonal').value = '';
+            document.getElementById('modalSearchPersonal').focus();
+        }
+
+        function closeAddPersonalModal() {
+            const modal = document.getElementById('addPersonalModal');
+            modal.style.display = 'none';
+        }
+
+        // Cerrar modal con ESC o clic en fondo
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeAddPersonalModal();
+        });
+        document.getElementById('addPersonalModal')?.addEventListener('click', (e) => {
+            if (e.target.id === 'addPersonalModal') closeAddPersonalModal();
+        });
+
+        function switchModalTab(tab) {
+            const tabReg = document.getElementById('modalTabRegistrados');
+            const tabNew = document.getElementById('modalTabNuevo');
+            const btnReg = document.getElementById('tabBtnRegistrados');
+            const btnNew = document.getElementById('tabBtnNuevo');
+
+            if (tab === 'registrados') {
+                tabReg.style.display = 'block';
+                tabNew.style.display = 'none';
+                btnReg.style.backgroundColor = '#fff';
+                btnReg.style.color = 'var(--primary)';
+                btnReg.style.borderBottom = '2px solid var(--primary)';
+                btnNew.style.backgroundColor = 'transparent';
+                btnNew.style.color = 'var(--text-secondary)';
+                btnNew.style.borderBottom = '2px solid transparent';
+            } else {
+                tabReg.style.display = 'none';
+                tabNew.style.display = 'block';
+                btnNew.style.backgroundColor = '#fff';
+                btnNew.style.color = 'var(--primary)';
+                btnNew.style.borderBottom = '2px solid var(--primary)';
+                btnReg.style.backgroundColor = 'transparent';
+                btnReg.style.color = 'var(--text-secondary)';
+                btnReg.style.borderBottom = '2px solid transparent';
+                document.getElementById('quickCedula').focus();
+            }
+        }
+
+        function updateAvailableEmployeesList() {
+            const container = document.getElementById('modalEmployeesList');
+            if (!container) return;
+            container.innerHTML = '';
+
+            const employees = getAllRegisteredEmployees();
+            const currentCedulas = new Set();
+            document.querySelectorAll('.planilla-row').forEach(row => {
+                const c = row.getAttribute('data-cedula');
+                if (c) currentCedulas.add(c.trim());
+            });
+
+            if (employees.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 1.5rem 0; font-size: 0.9rem;">No hay personal registrado en el sistema. Puedes agregar uno en la pestaña "Registrar Nuevo Empleado".</p>';
+                return;
+            }
+
+            employees.forEach(emp => {
+                const isAlreadyIn = currentCedulas.has(emp.cedula.trim());
+
+                const item = document.createElement('div');
+                item.className = 'modal-emp-item';
+                item.setAttribute('data-cedula', emp.cedula);
+                item.setAttribute('data-nombre', emp.nombre);
+                item.style.display = 'flex';
+                item.style.justifyContent = 'space-between';
+                item.style.alignItems = 'center';
+                item.style.padding = '0.65rem 0.85rem';
+                item.style.borderRadius = 'var(--radius-sm)';
+                item.style.border = '1px solid ' + (isAlreadyIn ? '#e2e8f0' : '#cbd5e1');
+                item.style.backgroundColor = isAlreadyIn ? '#f8fafc' : '#ffffff';
+                item.style.transition = 'all 0.15s';
+
+                const left = document.createElement('div');
+                left.innerHTML = `
+                    <div style="font-weight: 600; color: ${isAlreadyIn ? '#64748b' : '#1e293b'}; font-size: 0.9rem;">${emp.nombre}</div>
+                    <div style="font-size: 0.8rem; color: #64748b; display: flex; gap: 0.75rem; margin-top: 0.15rem;">
+                        <span><i class="fa-solid fa-id-card"></i> C.I.: ${emp.cedula}</span>
+                        <span><i class="fa-solid fa-money-bill-wave"></i> Jornal: ${new Intl.NumberFormat('de-DE').format(Math.round(emp.jornal))} Gs.</span>
+                    </div>
+                `;
+
+                const right = document.createElement('div');
+                if (isAlreadyIn) {
+                    right.innerHTML = `
+                        <span style="font-size: 0.75rem; font-weight: 700; background: #e2e8f0; color: #64748b; padding: 0.3rem 0.6rem; border-radius: 9999px; display: flex; align-items: center; gap: 0.3rem;">
+                            <i class="fa-solid fa-check"></i> En planilla
+                        </span>
+                    `;
+                } else {
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'btn btn-sm btn-success';
+                    btn.style.padding = '0.35rem 0.75rem';
+                    btn.style.fontSize = '0.8rem';
+                    btn.style.display = 'flex';
+                    btn.style.alignItems = 'center';
+                    btn.style.gap = '0.35rem';
+                    btn.style.backgroundColor = 'var(--success)';
+                    btn.style.borderColor = 'var(--success)';
+                    btn.innerHTML = '<i class="fa-solid fa-plus"></i> Agregar';
+                    btn.onclick = () => {
+                        addEmployeeToTable(emp.cedula, emp.nombre, emp.jornal, 'jornalero');
+                    };
+                    right.appendChild(btn);
+                }
+
+                item.appendChild(left);
+                item.appendChild(right);
+                container.appendChild(item);
+            });
+        }
+
+        function filterModalEmployees() {
+            const rawQuery = document.getElementById('modalSearchPersonal').value;
+            const terms = rawQuery.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().split(/\s+/).filter(t => t.length > 0);
+
+            document.querySelectorAll('.modal-emp-item').forEach(item => {
+                const nombre = (item.getAttribute('data-nombre') || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                const cedula = (item.getAttribute('data-cedula') || "").toLowerCase().replace(/\./g, "");
+
+                if (terms.length === 0) {
+                    item.style.display = 'flex';
+                    return;
+                }
+
+                const matches = terms.every(term => {
+                    const cleanTerm = term.replace(/\./g, "");
+                    return nombre.includes(term) || cedula.includes(cleanTerm);
+                });
+
+                item.style.display = matches ? 'flex' : 'none';
+            });
+        }
+
+        function addEmployeeToTable(cedula, nombre, jornal, cotizante = 'jornalero') {
+            const tbody = document.querySelector('.excel-table tbody');
+            if (!tbody) return;
+
+            // Check if already in table
+            const existing = tbody.querySelector(`.planilla-row[data-cedula="${cedula}"]`);
+            if (existing) {
+                alert(`El empleado con cédula ${cedula} ya se encuentra en la planilla.`);
+                existing.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return;
+            }
+
+            const jornalVal = typeof jornal === 'number' ? jornal : (parseInput({ value: jornal }) || 120000);
+            const impXHora = Math.round((jornalVal * 1.5) / 8.5);
+
+            const tr = document.createElement('tr');
+            tr.className = 'planilla-row';
+            tr.setAttribute('data-id', '');
+            tr.setAttribute('data-cedula', cedula);
+            tr.setAttribute('data-nombre', nombre);
+            tr.style.borderBottom = '1px solid #cbd5e1';
+            tr.style.backgroundColor = '#fff';
+
+            tr.innerHTML = `
+                <!-- Cotizante dropdown selector + Quitar empleado -->
+                <td style="border: 1px solid #cbd5e1; padding: 0.1rem;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; height: 100%; padding: 0 0.2rem;">
+                        <select class="excel-input select-cotizante" onchange="recalcularTotales()" style="border: none; background: transparent; width: calc(100% - 18px); height: 100%; outline: none; font-size: 0.8rem; text-align: center; text-transform: uppercase;">
+                            <option value="jornalero" ${cotizante === 'jornalero' ? 'selected' : ''}>Jornalero</option>
+                            <option value="general" ${cotizante === 'general' ? 'selected' : ''}>General</option>
+                        </select>
+                        <button type="button" onclick="removeEmployeeRow(this)" title="Quitar de esta planilla" style="background: none; border: none; color: #94a3b8; cursor: pointer; padding: 0 0.15rem; font-size: 0.75rem; line-height: 1;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#94a3b8'">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                </td>
+                
+                <!-- Nombre completo -->
+                <td style="border: 1px solid #cbd5e1; padding: 0.4rem 0.5rem; text-align: left; font-weight: 500; color: #334155; font-size: 0.8rem;">${nombre}</td>
+                
+                <!-- F. Ingreso (Cédula) -->
+                <td class="td-cedula" style="border: 1px solid #cbd5e1; padding: 0.4rem 0.25rem; color: #64748b; font-size: 0.8rem;">${cedula}</td>
+                
+                <!-- Asistencia Lunes a Sábado Inputs -->
+                <td style="border: 1px solid #cbd5e1; background-color: #fff8f6;"><input type="text" inputmode="decimal" class="excel-input asist-lu" value="0" oninput="recalcularTotales(this)"></td>
+                <td style="border: 1px solid #cbd5e1; background-color: #fff8f6;"><input type="text" inputmode="decimal" class="excel-input asist-ma" value="0" oninput="recalcularTotales(this)"></td>
+                <td style="border: 1px solid #cbd5e1; background-color: #fff8f6;"><input type="text" inputmode="decimal" class="excel-input asist-mie" value="0" oninput="recalcularTotales(this)"></td>
+                <td style="border: 1px solid #cbd5e1; background-color: #fff8f6;"><input type="text" inputmode="decimal" class="excel-input asist-ju" value="0" oninput="recalcularTotales(this)"></td>
+                <td style="border: 1px solid #cbd5e1; background-color: #fff8f6;"><input type="text" inputmode="decimal" class="excel-input asist-vi" value="0" oninput="recalcularTotales(this)"></td>
+                <td style="border: 1px solid #cbd5e1; background-color: #fff8f6;"><input type="text" inputmode="decimal" class="excel-input asist-sa" value="0" oninput="recalcularTotales(this)"></td>
+                
+                <!-- Total Días -->
+                <td style="border: 1px solid #cbd5e1; background-color: #fbe9e7; font-weight: bold; color: #c23b22;">
+                    <input type="text" inputmode="decimal" class="excel-input td-t-dias" value="0" oninput="recalcularTotales(this)" style="font-weight: bold; color: #c23b22;">
+                </td>
+                
+                <!-- Jornal editable input -->
+                <td style="border: 1px solid #cbd5e1; font-weight: bold; background-color: #fff8f6; color: #000;">
+                    <input type="text" inputmode="decimal" class="excel-input input-jornal" value="${jornalVal % 1 === 0 ? jornalVal : jornalVal.toFixed(3)}" oninput="recalcularTotales(this)" style="font-weight: bold;">
+                </td>
+                
+                <!-- Do input -->
+                <td style="border: 1px solid #cbd5e1; background-color: #fff8f6;"><input type="text" inputmode="decimal" class="excel-input input-do-domingo" value="0" oninput="recalcularTotales(this)"></td>
+                
+                <!-- Importe Domingo -->
+                <td style="border: 1px solid #cbd5e1; background-color: #ffebee; font-weight: bold; color: #b71c1c;">
+                    <input type="text" inputmode="decimal" class="excel-input td-imp-domingo" value="0" oninput="recalcularTotales(this)" style="font-weight: bold; color: #b71c1c;">
+                </td>
+                
+                <!-- Horas Extras Lunes a Sábado Inputs -->
+                <td style="border: 1px solid #cbd5e1; background-color: #fffde7;"><input type="text" inputmode="decimal" class="excel-input he-lu" value="0" oninput="recalcularTotales(this)"></td>
+                <td style="border: 1px solid #cbd5e1; background-color: #fffde7;"><input type="text" inputmode="decimal" class="excel-input he-ma" value="0" oninput="recalcularTotales(this)"></td>
+                <td style="border: 1px solid #cbd5e1; background-color: #fffde7;"><input type="text" inputmode="decimal" class="excel-input he-mie" value="0" oninput="recalcularTotales(this)"></td>
+                <td style="border: 1px solid #cbd5e1; background-color: #fffde7;"><input type="text" inputmode="decimal" class="excel-input he-jueves" value="0" oninput="recalcularTotales(this)"></td>
+                <td style="border: 1px solid #cbd5e1; background-color: #fffde7;"><input type="text" inputmode="decimal" class="excel-input he-vi" value="0" oninput="recalcularTotales(this)"></td>
+                <td style="border: 1px solid #cbd5e1; background-color: #fffde7;"><input type="text" inputmode="decimal" class="excel-input he-sa" value="0" oninput="recalcularTotales(this)"></td>
+                
+                <!-- Total Horas Extras -->
+                <td style="border: 1px solid #cbd5e1; background-color: #fff9c4; font-weight: bold; color: #f57f17;">
+                    <input type="text" inputmode="decimal" class="excel-input td-t-horas" value="0" oninput="recalcularTotales(this)" style="font-weight: bold; color: #f57f17;">
+                </td>
+                
+                <!-- Importe por Hora Extra -->
+                <td style="border: 1px solid #cbd5e1; background-color: #fff9c4; font-weight: bold; color: #e65100;">
+                    <input type="text" inputmode="decimal" class="excel-input td-imp-x-hora" value="${impXHora}" oninput="recalcularTotales(this)" style="font-weight: bold; color: #e65100;">
+                </td>
+                
+                <!-- Cantidad horas semanal -->
+                <td style="border: 1px solid #cbd5e1; background-color: #f1f8e9; font-weight: 500;">
+                    <input type="text" inputmode="decimal" class="excel-input td-cant-hora-sem" value="0" oninput="recalcularTotales(this)" style="font-weight: 500;">
+                </td>
+                
+                <!-- Gross Salary calculated -->
+                <td style="border: 1px solid #cbd5e1; background-color: #e8f5e9; font-weight: bold; color: #1b5e20;">
+                    <input type="text" inputmode="decimal" class="excel-input td-gross-pay" value="0" oninput="recalcularTotales(this)" style="font-weight: bold; color: #1b5e20;">
+                </td>
+                
+                <!-- IPS automatic 9% -->
+                <td style="border: 1px solid #cbd5e1; background-color: #ffebee; font-weight: bold; color: #c62828;">
+                    <input type="text" inputmode="decimal" class="excel-input td-ips" value="0" oninput="recalcularTotales(this)" style="font-weight: bold; color: #c62828;">
+                </td>
+                
+                <!-- Desc. manual -->
+                <td style="border: 1px solid #cbd5e1; background-color: #f9fbf7;"><input type="text" inputmode="decimal" class="excel-input input-desc-manual" value="0" oninput="recalcularTotales(this)"></td>
+                
+                <!-- Colaboracion -->
+                <td style="border: 1px solid #cbd5e1; background-color: #f9fbf7;"><input type="text" inputmode="decimal" class="excel-input input-colaboracion" value="0" oninput="recalcularTotales(this)"></td>
+                
+                <!-- Metodo de Pago dropdown -->
+                <td style="border: 1px solid #cbd5e1; padding: 0.1rem; background-color: #f9fbf7;">
+                    <select class="excel-input select-metodo-pago" onchange="recalcularTotales(this)" style="border: none; background: transparent; width: 100%; height: 100%; outline: none; font-size: 0.8rem; text-align: center; text-transform: uppercase;">
+                        <option value="EFECTIVO" selected>Efectivo</option>
+                        <option value="BANCO">Banco</option>
+                        <option value="CHEQUE">Cheque</option>
+                    </select>
+                </td>
+                
+                <!-- descuentos -->
+                <td style="border: 1px solid #cbd5e1; background-color: #f9fbf7;"><input type="text" inputmode="decimal" class="excel-input input-descuentos" value="0" oninput="recalcularTotales(this)"></td>
+                
+                <!-- Anticipo -->
+                <td style="border: 1px solid #cbd5e1; background-color: #f9fbf7;"><input type="text" inputmode="decimal" class="excel-input input-anticipo" value="0" oninput="recalcularTotales(this)"></td>
+                
+                <!-- Split payouts (Card vs Cash) -->
+                <td style="border: 1px solid #cbd5e1; background-color: #fffde7; font-weight: bold; color: #37474f;">
+                    <input type="text" inputmode="decimal" class="excel-input td-neto-tarjeta" value="0" oninput="recalcularTotales(this)" style="font-weight: bold; color: #37474f;">
+                </td>
+                <td style="border: 1px solid #cbd5e1; background-color: #fffde7; font-weight: bold; color: #37474f;">
+                    <input type="text" inputmode="decimal" class="excel-input td-imp-tesoreria" value="0" oninput="recalcularTotales(this)" style="font-weight: bold; color: #37474f;">
+                </td>
+            `;
+
+            // Insert before the footer total row or at the end of tbody
+            const totalRow = tbody.querySelector('#filaTotales') || tbody.lastElementChild;
+            tbody.insertBefore(tr, totalRow);
+
+            buildEmployeeChecklist();
+            recalcularFila(tr, tr.querySelector('.input-jornal'));
+            recalcularTotales();
+            updateAvailableEmployeesList();
+            tr.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        function removeEmployeeRow(btn) {
+            const row = btn.closest('tr');
+            const nombre = row.getAttribute('data-nombre') || "este empleado";
+            if (confirm(`¿Estás seguro de que deseas quitar a "${nombre}" de esta planilla?`)) {
+                row.remove();
+                buildEmployeeChecklist();
+                recalcularTotales();
+                updateAvailableEmployeesList();
+            }
+        }
+
+        function handleQuickCreateEmployee(event) {
+            event.preventDefault();
+            const cedula = document.getElementById('quickCedula').value.trim();
+            const nombre = document.getElementById('quickNombre').value.trim();
+            const jornal = parseInput(document.getElementById('quickJornal'));
+            const cotizante = document.getElementById('quickCotizante').value;
+
+            if (!cedula || !nombre || jornal <= 0) {
+                alert('Por favor complete todos los campos con valores válidos.');
+                return;
+            }
+
+            // Check if already in table
+            const existing = document.querySelector(`.planilla-row[data-cedula="${cedula}"]`);
+            if (existing) {
+                alert(`El empleado con cédula ${cedula} ya se encuentra en la planilla.`);
+                return;
+            }
+
+            // Also register in the DOM store so it is in the catalog
+            const store = document.getElementById('registeredEmployeesStore');
+            if (store) {
+                const div = document.createElement('div');
+                div.className = 'reg-emp-data';
+                div.setAttribute('data-cedula', cedula);
+                div.setAttribute('data-nombre', nombre);
+                div.setAttribute('data-normal', (jornal / 8.0).toFixed(0));
+                div.setAttribute('data-extra', ((jornal / 8.0) * 1.5).toFixed(0));
+                store.appendChild(div);
+            }
+
+            // Add to table
+            addEmployeeToTable(cedula, nombre, jornal, cotizante);
+
+            // Optional background save to employee catalog
+            fetch('/salarios/agregar-empleado', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                    'cedula': cedula,
+                    'nombre': nombre,
+                    'pagoHoraNormal': (jornal / 8.0).toFixed(0),
+                    'pagoHoraExtra': ((jornal / 8.0) * 1.5).toFixed(0)
+                })
+            }).catch(e => console.log('Auto-catalog save notice:', e));
+
+            // Reset form and close modal
+            document.getElementById('quickCedula').value = '';
+            document.getElementById('quickNombre').value = '';
+            document.getElementById('quickJornal').value = '120000';
+            closeAddPersonalModal();
+        }
+    </script>
+
+    <!-- Excel-like input borders overrides -->
+    <style>
+        .excel-table th, .excel-table td {
+            border: 1px solid #cbd5e1;
+            padding: 0;
+            height: 38px;
+            vertical-align: middle;
+        }
+        
+        .excel-input {
+            width: 100%;
+            height: 34px;
+            border: none !important;
+            background: transparent;
+            text-align: center;
+            font-size: 0.8rem;
+            outline: none !important;
+            padding: 0 0.25rem;
+            font-family: inherit;
+        }
+
+        .excel-input:focus {
+            background-color: #fff !important;
+            box-shadow: inset 0 0 0 2px var(--primary) !important;
+        }
+
+        .excel-input::-webkit-outer-spin-button,
+        .excel-input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        .excel-input[type=number] {
+            -moz-appearance: textfield;
+        }
+    </style>
+
+</body>
+</html>

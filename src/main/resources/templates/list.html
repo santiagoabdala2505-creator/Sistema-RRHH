@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security" lang="es">
+<head th:replace="~{layout :: head('Registros de Marcaciones')}">
+    <title>Registros de Marcaciones</title>
+</head>
+<body>
+
+    <!-- Sidebar Navigation -->
+    <aside th:replace="~{layout :: sidebar('list')}"></aside>
+
+    <!-- Main Wrapper -->
+    <div class="main-wrapper">
+        <!-- Header -->
+        <header th:replace="~{layout :: header(${punteroNombre != null} ? 'Puntero: ' + ${punteroNombre} : 'Registros de Marcaciones', ${punteroNombre != null} ? 'Asistencia del puntero y su equipo de trabajo' : 'Listado general de asistencias calculadas')}"></header>
+
+        <!-- Flash alerts -->
+        <div th:replace="~{layout :: alerts}"></div>
+
+        <!-- Filter Card -->
+        <div class="card">
+            <form action="/marcaciones" method="GET" style="display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 1rem; align-items: end;">
+                <!-- Preserve active Puntero in search -->
+                <input type="hidden" name="puntero" th:value="${puntero}">
+                
+                <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                    <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary);" for="query">Buscar por C&eacute;dula o Nombre</label>
+                    <input type="text" id="query" name="query" th:value="${query}" placeholder="Ej. Juan o 12345" style="padding: 0.5rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); font-size: 0.9rem;">
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                    <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary);" for="startDate">Fecha Inicio</label>
+                    <input type="date" id="startDate" name="startDate" th:value="${startDate}" style="padding: 0.5rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); font-size: 0.9rem;">
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                    <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary);" for="endDate">Fecha Fin</label>
+                    <input type="date" id="endDate" name="endDate" th:value="${endDate}" style="padding: 0.5rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); font-size: 0.9rem;">
+                </div>
+                <div style="display: flex; gap: 0.5rem; flex-wrap: nowrap;">
+                    <button type="submit" class="btn btn-primary" title="Buscar y Filtrar">
+                        <i class="fa-solid fa-magnifying-glass"></i> Filtrar
+                    </button>
+                    <a th:href="@{/marcaciones(puntero=${puntero})}" class="btn btn-secondary" title="Limpiar Filtros">
+                        <i class="fa-solid fa-rotate-left"></i>
+                    </a>
+                    <a th:href="@{/marcaciones/export/excel(query=${query}, startDate=${startDate}, endDate=${endDate}, puntero=${puntero})}" 
+                       class="btn" style="background-color: #10b981; color: white;" title="Descargar Excel (.xlsx)">
+                        <i class="fa-solid fa-file-excel"></i> Excel
+                    </a>
+                    <a th:href="@{/marcaciones/export/pdf(query=${query}, startDate=${startDate}, endDate=${endDate}, puntero=${puntero})}" 
+                       class="btn" style="background-color: #ef4444; color: white;" title="Descargar PDF (.pdf)">
+                        <i class="fa-solid fa-file-pdf"></i> PDF
+                    </a>
+                </div>
+            </form>
+        </div>
+
+        <!-- Table Card -->
+        <div class="card" style="padding: 0; overflow: hidden;">
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 1.5rem 1.75rem; border-bottom: 1px solid var(--border-color);">
+                <h3 class="card-title" style="margin-bottom: 0;">Lista de Marcaciones</h3>
+                <div style="display: flex; gap: 0.75rem;">
+                    <a href="/marcaciones/nuevo" class="btn btn-sm btn-success">
+                        <i class="fa-solid fa-plus"></i> Nueva Marcaci&oacute;n
+                    </a>
+                    <a href="/marcaciones/limpiar" class="btn btn-sm btn-danger"
+                       onclick="return confirm('&#191;Est&#225; seguro de eliminar todas las marcaciones? Esta acci&#243;n es irreversible.');">
+                        <i class="fa-solid fa-trash-can"></i> Limpiar BD
+                    </a>
+                </div>
+            </div>
+
+            <div style="overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem;">
+                    <thead>
+                        <tr style="background-color: var(--bg-body); border-bottom: 1px solid var(--border-color);">
+                            <th style="padding: 1rem 1.5rem; font-weight: 600; color: var(--text-secondary); width: 100px;">C&eacute;dula</th>
+                            <th style="padding: 1rem 1.5rem; font-weight: 600; color: var(--text-secondary);">Nombre</th>
+                            <th style="padding: 1rem 1.5rem; font-weight: 600; color: var(--text-secondary); width: 110px;">Fecha</th>
+                            <th style="padding: 1rem 1.5rem; font-weight: 600; color: var(--text-secondary); text-align: center;">Entrada</th>
+                            <th style="padding: 1rem 1.5rem; font-weight: 600; color: var(--text-secondary); text-align: center;">Alm. Salida</th>
+                            <th style="padding: 1rem 1.5rem; font-weight: 600; color: var(--text-secondary); text-align: center;">Alm. Entrada</th>
+                            <th style="padding: 1rem 1.5rem; font-weight: 600; color: var(--text-secondary); text-align: center;">Salida</th>
+                            <th style="padding: 1rem 1.5rem; font-weight: 600; color: var(--text-secondary); text-align: center;">Horas Normales</th>
+                            <th style="padding: 1rem 1.5rem; font-weight: 600; color: var(--text-secondary); text-align: center;">Horas Extras</th>
+                            <th style="padding: 1rem 1.5rem; font-weight: 600; color: var(--text-secondary); text-align: center;">Total Horas</th>
+                            <th style="padding: 1rem 1.5rem; font-weight: 600; color: var(--text-secondary); text-align: left; min-width: 140px;">Obs.</th>
+                            <!-- Columna Acciones visible para todos -->
+                            <th style="padding: 1rem 1.5rem; font-weight: 600; color: var(--text-secondary); text-align: center; width: 110px;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:if="${#lists.isEmpty(marcaciones)}" style="border-bottom: 1px solid var(--border-color);">
+                            <td colspan="12" style="padding: 3rem 1.5rem; text-align: center; color: var(--text-secondary); font-size: 0.95rem;">
+                                <i class="fa-regular fa-folder-open" style="font-size: 2.5rem; margin-bottom: 0.75rem; display: block; color: #cbd5e1;"></i>
+                                No se encontraron registros de marcaciones.
+                            </td>
+                        </tr>
+                        <tr th:each="m : ${marcaciones}" style="border-bottom: 1px solid var(--border-color); transition: var(--transition);"
+                            onmouseover="this.style.backgroundColor='rgba(248,250,252,0.6)'"
+                            onmouseout="this.style.backgroundColor='transparent'">
+                            <td style="padding: 1rem 1.5rem; font-weight: 500; font-family: monospace;" th:text="${m.cedula}">000000</td>
+                            <td style="padding: 1rem 1.5rem; font-weight: 600; color: var(--dark);" th:text="${m.nombre}">Juan Perez</td>
+                            <td style="padding: 1rem 1.5rem; color: var(--text-secondary);" th:text="${#temporals.format(m.fecha, 'dd/MM/yyyy')}">01/01/2026</td>
+
+                            <!-- Times with latency checks -->
+                            <td style="padding: 1rem 1.5rem; text-align: center;">
+                                <span th:text="${m.horaEntrada != null ? #temporals.format(m.horaEntrada, 'HH:mm') : '-'}"
+                                      th:style="${m.minutosAtrasoEntrada > 0} ? 'color: var(--danger); font-weight: 600;' : ''">07:00</span>
+                                <div th:if="${m.minutosAtrasoEntrada > 0}" style="font-size: 0.7rem; color: var(--danger); font-weight: 500;"
+                                     th:text="'+' + ${m.minutosAtrasoEntrada} + 'm'">+5m</div>
+                            </td>
+                            <td style="padding: 1rem 1.5rem; text-align: center;">
+                                <span th:text="${m.horaSalidaAlmuerzo != null ? #temporals.format(m.horaSalidaAlmuerzo, 'HH:mm') : '-'}"
+                                      th:style="${m.minutosSalidaTempranaAlmuerzo > 0} ? 'color: var(--warning); font-weight: 600;' : ''">12:00</span>
+                                <div th:if="${m.minutosSalidaTempranaAlmuerzo > 0}" style="font-size: 0.7rem; color: var(--warning); font-weight: 500;"
+                                     th:text="'-' + ${m.minutosSalidaTempranaAlmuerzo} + 'm'">-5m</div>
+                            </td>
+                            <td style="padding: 1rem 1.5rem; text-align: center;">
+                                <span th:text="${m.horaEntradaAlmuerzo != null ? #temporals.format(m.horaEntradaAlmuerzo, 'HH:mm') : '-'}"
+                                      th:style="${m.minutosAtrasoAlmuerzo > 0} ? 'color: var(--danger); font-weight: 600;' : ''">13:00</span>
+                                <div th:if="${m.minutosAtrasoAlmuerzo > 0}" style="font-size: 0.7rem; color: var(--danger); font-weight: 500;"
+                                     th:text="'+' + ${m.minutosAtrasoAlmuerzo} + 'm'">+5m</div>
+                            </td>
+                            <td style="padding: 1rem 1.5rem; text-align: center;">
+                                <span th:text="${m.horaSalidaLaboral != null ? #temporals.format(m.horaSalidaLaboral, 'HH:mm') : '-'}"
+                                      th:style="${m.minutosSalidaTempranaLaboral > 0} ? 'color: var(--danger); font-weight: 600;' : ''">17:00</span>
+                                <div th:if="${m.minutosSalidaTempranaLaboral > 0}" style="font-size: 0.7rem; color: var(--danger); font-weight: 500;"
+                                     th:text="'-' + ${m.minutosSalidaTempranaLaboral} + 'm'">-5m</div>
+                            </td>
+
+                            <!-- Worked hours, overtime and sum total -->
+                            <td style="padding: 1rem 1.5rem; text-align: center; font-weight: 600;"
+                                th:text="${m.getHorasTrabajadasFormateadas()}">0hs.0min.</td>
+                            <td style="padding: 1rem 1.5rem; text-align: center; font-weight: 600; color: var(--success);"
+                                th:text="${m.getHorasExtrasFormateadas()}">0hs.0min.</td>
+                            <td style="padding: 1rem 1.5rem; text-align: center; font-weight: 600; color: var(--primary);"
+                                th:text="${m.getHorasTotalesFormateadas()}">0hs.0min.</td>
+
+                            <!-- Observación y usuario modificador con botón de ojo -->
+                            <td style="padding: 1rem 1.5rem; text-align: left; max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle;">
+                                <div style="display: flex; align-items: center; gap: 0.35rem;">
+                                    <button th:if="${m.observaciones != null}" type="button" 
+                                            class="btn btn-secondary" 
+                                            style="padding: 0.2rem; display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); cursor: pointer;"
+                                            th:data-obs="${m.observaciones}"
+                                            th:data-usuario="${m.usuarioModificacion}"
+                                            onclick="verObs(this)"
+                                            title="Ver observación completa">
+                                        <i class="fa-solid fa-eye" style="color: var(--primary); font-size: 0.8rem;"></i>
+                                    </button>
+                                    <small th:if="${m.usuarioModificacion != null}" 
+                                           style="background-color: rgba(79, 70, 229, 0.1); color: var(--primary); font-weight: 600; padding: 0.15rem 0.35rem; border-radius: var(--radius-sm); font-size: 0.7rem;" 
+                                           th:text="${m.usuarioModificacion}"></small>
+                                    <span th:text="${m.observaciones != null ? m.observaciones : '-'}">-</span>
+                                </div>
+                            </td>
+
+                            <!-- Actions -->
+                            <td style="padding: 1rem 1.5rem; text-align: center;">
+                                <div style="display: flex; gap: 0.35rem; justify-content: center;">
+                                    <a th:href="@{/marcaciones/editar/{id}(id=${m.id})}" class="btn btn-sm btn-secondary"
+                                       title="Editar" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">
+                                        <i class="fa-solid fa-pen-to-square" style="color: var(--primary);"></i>
+                                    </a>
+                                    <a th:href="@{/marcaciones/eliminar/{id}(id=${m.id})}" class="btn btn-sm btn-secondary"
+                                       title="Eliminar" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;"
+                                       onclick="return confirm('&#191;Est&#225; seguro de eliminar esta marcaci&#243;n?');">
+                                        <i class="fa-solid fa-trash" style="color: var(--danger);"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para ver Observaciones Completas -->
+    <div id="obsModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(15, 23, 42, 0.4); backdrop-filter: blur(4px); z-index: 9999; align-items: center; justify-content: center;">
+        <div style="background-color: var(--card-bg); border-radius: var(--radius-md); border: 1px solid var(--border-color); padding: 1.75rem; width: 90%; max-width: 480px; box-shadow: var(--shadow-lg); position: relative; animation: modalFadeIn 0.25s ease-out;">
+            <h4 style="margin-top: 0; margin-bottom: 1.25rem; color: var(--dark); font-family: 'Outfit', sans-serif; font-size: 1.2rem; display: flex; align-items: center; gap: 0.5rem;">
+                <i class="fa-solid fa-message" style="color: var(--primary);"></i> Detalle de Observación
+            </h4>
+            <div id="obsModalContent" style="color: var(--text-secondary); line-height: 1.6; word-break: break-word; font-size: 0.95rem; margin-bottom: 1.5rem; display: flex; flex-direction: column; gap: 0.75rem;">
+            </div>
+            <div style="display: flex; justify-content: flex-end; border-top: 1px solid var(--border-color); padding-top: 1rem;">
+                <button type="button" class="btn btn-primary" onclick="closeObsModal()">Aceptar</button>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        @keyframes modalFadeIn {
+            from { transform: scale(0.95); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+    </style>
+
+    <!-- Script Modal -->
+    <script>
+        function verObs(btn) {
+            var fullText = btn.getAttribute('data-obs');
+            var usuario = btn.getAttribute('data-usuario');
+            var contentDiv = document.getElementById('obsModalContent');
+            
+            var html = '';
+            if (usuario && usuario !== 'null' && usuario !== '') {
+                html += '<div><span style="font-weight: 600; color: var(--dark);">Responsable: </span>' +
+                        '<span style="background-color: rgba(79, 70, 229, 0.1); color: var(--primary); font-weight: 600; padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.75rem;">' + usuario + '</span></div>';
+            }
+            html += '<div><span style="font-weight: 600; color: var(--dark);">Detalle: </span><p style="margin-top: 0.25rem; white-space: pre-wrap; color: var(--text-secondary);">' + fullText + '</p></div>';
+            
+            contentDiv.innerHTML = html;
+            document.getElementById('obsModal').style.display = 'flex';
+        }
+
+        function closeObsModal() {
+            document.getElementById('obsModal').style.display = 'none';
+        }
+
+        // Cerrar al hacer click afuera
+        window.addEventListener('click', function(event) {
+            var modal = document.getElementById('obsModal');
+            if (event.target == modal) {
+                modal.style.display = 'none';
+            }
+        });
+    </script>
+
+    <!-- Layout Scripts -->
+    <th:block th:replace="~{layout :: scripts}"></th:block>
+</body>
+</html>

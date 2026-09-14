@@ -1,0 +1,1149 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<head th:replace="~{layout :: head('Gestión de Salarios')}">
+    <title>Gestión de Salarios</title>
+</head>
+<body>
+
+    <!-- Sidebar Navigation -->
+    <aside th:replace="~{layout :: sidebar('salarios')}"></aside>
+
+    <!-- Main Wrapper -->
+    <div class="main-wrapper">
+        <!-- Header -->
+        <header th:replace="~{layout :: header('Gestión de Salarios', 'Control de liquidaciones semanales, tarifas por hora y caja de tesorería')}"></header>
+
+        <!-- Flash alerts -->
+        <div th:replace="~{layout :: alerts}"></div>
+
+        <!-- Custom tabs styling -->
+        <style>
+            .tabs-nav {
+                display: flex;
+                gap: 0.5rem;
+                margin-bottom: 1.5rem;
+                border-bottom: 2px solid var(--border-color);
+                padding-bottom: 0.5rem;
+            }
+            .tab-btn {
+                background: transparent;
+                border: none;
+                padding: 0.65rem 1.25rem;
+                font-size: 0.9rem;
+                font-weight: 600;
+                color: var(--text-secondary);
+                cursor: pointer;
+                border-radius: var(--radius-sm);
+                transition: var(--transition);
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+            }
+            .tab-btn:hover {
+                color: var(--primary);
+                background-color: var(--bg-body);
+            }
+            .tab-btn.active {
+                color: #fff;
+                background-color: var(--primary);
+            }
+            .tab-content {
+                display: none;
+            }
+            .tab-content.active {
+                display: block;
+            }
+            #cardFolderJornaleros *, #cardFolderMensualeros *, .month-folder-card * {
+                pointer-events: none;
+            }
+        </style>
+
+        <!-- Navigation Tabs -->
+        <div class="tabs-nav">
+            <button class="tab-btn active" id="tabBtnPlanillas" onclick="document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active')); this.classList.add('active'); document.getElementById('content-planillas').style.display='block'; document.getElementById('content-tarifas').style.display='none'; switchTab('planillas');">
+                <i class="fa-solid fa-file-invoice-dollar"></i> Planillas Semanales
+            </button>
+            <button class="tab-btn" id="tabBtnTarifas" onclick="document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active')); this.classList.add('active'); document.getElementById('content-planillas').style.display='none'; document.getElementById('content-tarifas').style.display='block'; switchTab('tarifas');">
+                <i class="fa-solid fa-sliders"></i> Configurar Tarifas de Hora
+            </button>
+        </div>
+
+        <!-- Tab 1: Planillas Semanales -->
+        <div id="content-planillas" class="tab-content active">
+            <!-- Filter Generator Card -->
+            <div class="card" style="padding: 1.25rem 1.5rem; margin-bottom: 1.5rem;">
+                <h3 class="card-title" style="font-size: 1.1rem; margin-bottom: 1rem;"><i class="fa-solid fa-circle-plus" style="color: var(--primary); margin-right: 0.35rem;"></i> Crear Nueva Planilla Semanal</h3>
+                
+                <form action="/salarios/generar" method="GET" style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 1rem; align-items: end;">
+                    <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+                        <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary);" for="desde">Fecha Desde (Lunes)</label>
+                        <input type="date" id="desde" name="desde" th:value="${fechaDesde}" required style="padding: 0.5rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); font-size: 0.9rem;">
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+                        <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary);" for="hasta">Fecha Hasta (Domingo)</label>
+                        <input type="date" id="hasta" name="hasta" th:value="${fechaHasta}" required style="padding: 0.5rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); font-size: 0.9rem;">
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fa-solid fa-calculator"></i> Generar Tabla
+                    </button>
+                </form>
+            </div>
+
+            <!-- Saved Planillas Card with Folder Explorer -->
+            <div class="card" style="padding: 0; overflow: hidden; margin-bottom: 2rem;">
+                
+                <!-- Card Header with Breadcrumb and View Toggle -->
+                <div class="card-header" style="padding: 1.25rem 1.75rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; border-bottom: 1px solid var(--border-color); background: #ffffff;">
+                    <div>
+                        <h3 class="card-title" style="margin-bottom: 0.25rem; display: flex; align-items: center; gap: 0.5rem; font-size: 1.15rem;">
+                            <i class="fa-solid fa-folder-tree" style="color: var(--primary);"></i> Carpetas de Planillas
+                        </h3>
+                        <!-- Interactive Breadcrumbs -->
+                        <div id="breadcrumbBar" style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; color: #64748b; font-weight: 500;">
+                            <span style="cursor: pointer; color: var(--primary);" onclick="backToRootFolders(event)"><i class="fa-solid fa-folder"></i> Inicio (Carpetas)</span>
+                        </div>
+                    </div>
+                    
+                    <!-- View toggle buttons -->
+                    <div style="display: flex; gap: 0.5rem; background: #f1f5f9; padding: 0.25rem; border-radius: var(--radius-sm);">
+                        <button type="button" id="btnModeFolders" onclick="document.getElementById('viewExplorerFolders').style.display='block'; document.getElementById('viewExplorerList').style.display='none'; switchPlanillasView('folders');" 
+                                style="padding: 0.4rem 0.85rem; border: none; border-radius: 4px; font-size: 0.82rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 0.35rem; background: #fff; color: var(--primary); box-shadow: 0 1px 2px rgba(0,0,0,0.05); transition: all 0.2s;">
+                            <i class="fa-solid fa-folder"></i> Vista Carpetas
+                        </button>
+                        <button type="button" id="btnModeList" onclick="document.getElementById('viewExplorerFolders').style.display='none'; document.getElementById('viewExplorerList').style.display='block'; switchPlanillasView('list');" 
+                                style="padding: 0.4rem 0.85rem; border: none; border-radius: 4px; font-size: 0.82rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 0.35rem; background: transparent; color: #64748b; transition: all 0.2s;">
+                            <i class="fa-solid fa-list-ul"></i> Ver Todas (<span id="spanTotalPlanillas" th:text="${#lists.size(planillas)}">0</span>)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- ═══════════════════════════════════════════════════════════════ -->
+                <!-- FOLDER EXPLORER VIEW -->
+                <!-- ═══════════════════════════════════════════════════════════════ -->
+                <div id="viewExplorerFolders" style="padding: 1.5rem 1.75rem;">
+                    
+                    <!-- Level 0: Main Folders (Jornaleros & Mensualeros) -->
+                    <div id="folderLevelRoot" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem;">
+                        
+                        <!-- Folder 1: Personales Jornaleros -->
+                        <div id="cardFolderJornaleros" onclick="openJornalerosFolder(event)" role="button" tabindex="0"
+                             style="border: 1.5px solid #e2e8f0; border-radius: var(--radius-md); padding: 1.5rem; background: #fdfefe; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.03); user-select: none;"
+                             onmouseover="this.style.borderColor='var(--primary)'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 10px 15px -3px rgba(0,0,0,0.07)';"
+                             onmouseout="this.style.borderColor='#e2e8f0'; this.style.transform='none'; this.style.boxShadow='0 1px 3px rgba(0,0,0,0.03)';">
+                            <div style="width: 56px; height: 56px; border-radius: 12px; background: #fef3c7; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                                <i class="fa-solid fa-folder" style="font-size: 1.85rem; color: #d97706;"></i>
+                            </div>
+                            <div style="flex-grow: 1;">
+                                <h4 style="margin: 0 0 0.25rem 0; font-size: 1.1rem; color: #1e293b; font-weight: 700;">Personales Jornaleros</h4>
+                                <p style="margin: 0 0 0.5rem 0; font-size: 0.8rem; color: #64748b;">Planillas semanales de personal jornalero</p>
+                                <span id="badgeCountJornaleros" style="font-size: 0.75rem; font-weight: 700; background: #fef3c7; color: #b45309; padding: 0.2rem 0.55rem; border-radius: 9999px;"
+                                      th:text="${(countJornaleros ?: 0) + ((countJornaleros ?: 0) == 1 ? ' planilla' : ' planillas')}">0 planillas</span>
+                            </div>
+                            <i class="fa-solid fa-chevron-right" style="color: #cbd5e1; font-size: 1.1rem;"></i>
+                        </div>
+
+                        <!-- Folder 2: Personales Mensualeros -->
+                        <div id="cardFolderMensualeros" onclick="openMensualerosFolder(event)" role="button" tabindex="0"
+                             style="border: 1.5px solid #e2e8f0; border-radius: var(--radius-md); padding: 1.5rem; background: #fdfefe; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.03); user-select: none;"
+                             onmouseover="this.style.borderColor='var(--primary)'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 10px 15px -3px rgba(0,0,0,0.07)';"
+                             onmouseout="this.style.borderColor='#e2e8f0'; this.style.transform='none'; this.style.boxShadow='0 1px 3px rgba(0,0,0,0.03)';">
+                            <div style="width: 56px; height: 56px; border-radius: 12px; background: #e0f2fe; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                                <i class="fa-solid fa-folder-tree" style="font-size: 1.85rem; color: #0284c7;"></i>
+                            </div>
+                            <div style="flex-grow: 1;">
+                                <h4 style="margin: 0 0 0.25rem 0; font-size: 1.1rem; color: #1e293b; font-weight: 700;">Personales Mensualeros</h4>
+                                <p style="margin: 0 0 0.5rem 0; font-size: 0.8rem; color: #64748b;">Subcarpetas por mes (Enero a Diciembre)</p>
+                                <span id="badgeCountMensualeros" style="font-size: 0.75rem; font-weight: 700; background: #e0f2fe; color: #0369a1; padding: 0.2rem 0.55rem; border-radius: 9999px;"
+                                      th:text="${(countMensualeros ?: 0) + ((countMensualeros ?: 0) == 1 ? ' planilla' : ' planillas')}"
+                                      th:styleappend="${(countMensualeros ?: 0) > 0 ? 'background: #e0f2fe; color: #0369a1; font-weight: 800;' : ''}">0 planillas</span>
+                            </div>
+                            <i class="fa-solid fa-chevron-right" style="color: #cbd5e1; font-size: 1.1rem;"></i>
+                        </div>
+
+                    </div>
+
+                    <!-- Level 1: Mensualeros Month Subfolders Grid -->
+                    <div id="folderLevelMensualerosMonths" style="display: none;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+                            <button type="button" onclick="backToRootFolders()" class="btn btn-sm btn-secondary" style="display: flex; align-items: center; gap: 0.4rem; font-weight: 600;">
+                                <i class="fa-solid fa-arrow-left"></i> Volver a Carpetas Principales
+                            </button>
+                            <span style="font-size: 0.85rem; color: #64748b; font-weight: 600;">Seleccione un mes para ver sus planillas</span>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 1rem;">
+                            <!-- 12 Months -->
+                            <div onclick="openMonthFolder('ENERO')" class="month-folder-card" data-mes="ENERO"
+                                 style="border: 1px solid #e2e8f0; border-radius: var(--radius-sm); padding: 1rem; background: #ffffff; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0.5rem;"
+                                 onmouseover="this.style.borderColor='var(--primary)'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 6px -1px rgba(0,0,0,0.07)';"
+                                 onmouseout="this.style.borderColor='#e2e8f0'; this.style.transform='none'; this.style.boxShadow='none';">
+                                <i class="fa-solid fa-folder" style="font-size: 2.2rem; color: #38bdf8;"></i>
+                                <span style="font-weight: 700; font-size: 0.95rem; color: #1e293b;">Enero</span>
+                                <span class="month-badge-count" style="font-size: 0.72rem; font-weight: 700; background: #f1f5f9; color: #64748b; padding: 0.15rem 0.5rem; border-radius: 9999px;"
+                                      th:text="${(monthCounts != null && monthCounts['ENERO'] != null ? monthCounts['ENERO'] : 0) + ((monthCounts != null && monthCounts['ENERO'] == 1) ? ' planilla' : ' planillas')}"
+                                      th:styleappend="${(monthCounts != null && monthCounts['ENERO'] != null && monthCounts['ENERO'] > 0) ? 'background: #e0f2fe; color: #0369a1; font-weight: 800;' : ''}">0 planillas</span>
+                            </div>
+
+                            <div onclick="openMonthFolder('FEBRERO')" class="month-folder-card" data-mes="FEBRERO"
+                                 style="border: 1px solid #e2e8f0; border-radius: var(--radius-sm); padding: 1rem; background: #ffffff; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0.5rem;"
+                                 onmouseover="this.style.borderColor='var(--primary)'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 6px -1px rgba(0,0,0,0.07)';"
+                                 onmouseout="this.style.borderColor='#e2e8f0'; this.style.transform='none'; this.style.boxShadow='none';">
+                                <i class="fa-solid fa-folder" style="font-size: 2.2rem; color: #38bdf8;"></i>
+                                <span style="font-weight: 700; font-size: 0.95rem; color: #1e293b;">Febrero</span>
+                                <span class="month-badge-count" style="font-size: 0.72rem; font-weight: 700; background: #f1f5f9; color: #64748b; padding: 0.15rem 0.5rem; border-radius: 9999px;"
+                                      th:text="${(monthCounts != null && monthCounts['FEBRERO'] != null ? monthCounts['FEBRERO'] : 0) + ((monthCounts != null && monthCounts['FEBRERO'] == 1) ? ' planilla' : ' planillas')}"
+                                      th:styleappend="${(monthCounts != null && monthCounts['FEBRERO'] != null && monthCounts['FEBRERO'] > 0) ? 'background: #e0f2fe; color: #0369a1; font-weight: 800;' : ''}">0 planillas</span>
+                            </div>
+
+                            <div onclick="openMonthFolder('MARZO')" class="month-folder-card" data-mes="MARZO"
+                                 style="border: 1px solid #e2e8f0; border-radius: var(--radius-sm); padding: 1rem; background: #ffffff; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0.5rem;"
+                                 onmouseover="this.style.borderColor='var(--primary)'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 6px -1px rgba(0,0,0,0.07)';"
+                                 onmouseout="this.style.borderColor='#e2e8f0'; this.style.transform='none'; this.style.boxShadow='none';">
+                                <i class="fa-solid fa-folder" style="font-size: 2.2rem; color: #38bdf8;"></i>
+                                <span style="font-weight: 700; font-size: 0.95rem; color: #1e293b;">Marzo</span>
+                                <span class="month-badge-count" style="font-size: 0.72rem; font-weight: 700; background: #f1f5f9; color: #64748b; padding: 0.15rem 0.5rem; border-radius: 9999px;"
+                                      th:text="${(monthCounts != null && monthCounts['MARZO'] != null ? monthCounts['MARZO'] : 0) + ((monthCounts != null && monthCounts['MARZO'] == 1) ? ' planilla' : ' planillas')}"
+                                      th:styleappend="${(monthCounts != null && monthCounts['MARZO'] != null && monthCounts['MARZO'] > 0) ? 'background: #e0f2fe; color: #0369a1; font-weight: 800;' : ''}">0 planillas</span>
+                            </div>
+
+                            <div onclick="openMonthFolder('ABRIL')" class="month-folder-card" data-mes="ABRIL"
+                                 style="border: 1px solid #e2e8f0; border-radius: var(--radius-sm); padding: 1rem; background: #ffffff; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0.5rem;"
+                                 onmouseover="this.style.borderColor='var(--primary)'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 6px -1px rgba(0,0,0,0.07)';"
+                                 onmouseout="this.style.borderColor='#e2e8f0'; this.style.transform='none'; this.style.boxShadow='none';">
+                                <i class="fa-solid fa-folder" style="font-size: 2.2rem; color: #38bdf8;"></i>
+                                <span style="font-weight: 700; font-size: 0.95rem; color: #1e293b;">Abril</span>
+                                <span class="month-badge-count" style="font-size: 0.72rem; font-weight: 700; background: #f1f5f9; color: #64748b; padding: 0.15rem 0.5rem; border-radius: 9999px;"
+                                      th:text="${(monthCounts != null && monthCounts['ABRIL'] != null ? monthCounts['ABRIL'] : 0) + ((monthCounts != null && monthCounts['ABRIL'] == 1) ? ' planilla' : ' planillas')}"
+                                      th:styleappend="${(monthCounts != null && monthCounts['ABRIL'] != null && monthCounts['ABRIL'] > 0) ? 'background: #e0f2fe; color: #0369a1; font-weight: 800;' : ''}">0 planillas</span>
+                            </div>
+
+                            <div onclick="openMonthFolder('MAYO')" class="month-folder-card" data-mes="MAYO"
+                                 style="border: 1px solid #e2e8f0; border-radius: var(--radius-sm); padding: 1rem; background: #ffffff; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0.5rem;"
+                                 onmouseover="this.style.borderColor='var(--primary)'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 6px -1px rgba(0,0,0,0.07)';"
+                                 onmouseout="this.style.borderColor='#e2e8f0'; this.style.transform='none'; this.style.boxShadow='none';">
+                                <i class="fa-solid fa-folder" style="font-size: 2.2rem; color: #38bdf8;"></i>
+                                <span style="font-weight: 700; font-size: 0.95rem; color: #1e293b;">Mayo</span>
+                                <span class="month-badge-count" style="font-size: 0.72rem; font-weight: 700; background: #f1f5f9; color: #64748b; padding: 0.15rem 0.5rem; border-radius: 9999px;"
+                                      th:text="${(monthCounts != null && monthCounts['MAYO'] != null ? monthCounts['MAYO'] : 0) + ((monthCounts != null && monthCounts['MAYO'] == 1) ? ' planilla' : ' planillas')}"
+                                      th:styleappend="${(monthCounts != null && monthCounts['MAYO'] != null && monthCounts['MAYO'] > 0) ? 'background: #e0f2fe; color: #0369a1; font-weight: 800;' : ''}">0 planillas</span>
+                            </div>
+
+                            <div onclick="openMonthFolder('JUNIO')" class="month-folder-card" data-mes="JUNIO"
+                                 style="border: 1px solid #e2e8f0; border-radius: var(--radius-sm); padding: 1rem; background: #ffffff; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0.5rem;"
+                                 onmouseover="this.style.borderColor='var(--primary)'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 6px -1px rgba(0,0,0,0.07)';"
+                                 onmouseout="this.style.borderColor='#e2e8f0'; this.style.transform='none'; this.style.boxShadow='none';">
+                                <i class="fa-solid fa-folder" style="font-size: 2.2rem; color: #38bdf8;"></i>
+                                <span style="font-weight: 700; font-size: 0.95rem; color: #1e293b;">Junio</span>
+                                <span class="month-badge-count" style="font-size: 0.72rem; font-weight: 700; background: #f1f5f9; color: #64748b; padding: 0.15rem 0.5rem; border-radius: 9999px;"
+                                      th:text="${(monthCounts != null && monthCounts['JUNIO'] != null ? monthCounts['JUNIO'] : 0) + ((monthCounts != null && monthCounts['JUNIO'] == 1) ? ' planilla' : ' planillas')}"
+                                      th:styleappend="${(monthCounts != null && monthCounts['JUNIO'] != null && monthCounts['JUNIO'] > 0) ? 'background: #e0f2fe; color: #0369a1; font-weight: 800;' : ''}">0 planillas</span>
+                            </div>
+
+                            <div onclick="openMonthFolder('JULIO')" class="month-folder-card" data-mes="JULIO"
+                                 style="border: 1px solid #e2e8f0; border-radius: var(--radius-sm); padding: 1rem; background: #ffffff; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0.5rem;"
+                                 onmouseover="this.style.borderColor='var(--primary)'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 6px -1px rgba(0,0,0,0.07)';"
+                                 onmouseout="this.style.borderColor='#e2e8f0'; this.style.transform='none'; this.style.boxShadow='none';">
+                                <i class="fa-solid fa-folder" style="font-size: 2.2rem; color: #38bdf8;"></i>
+                                <span style="font-weight: 700; font-size: 0.95rem; color: #1e293b;">Julio</span>
+                                <span class="month-badge-count" style="font-size: 0.72rem; font-weight: 700; background: #f1f5f9; color: #64748b; padding: 0.15rem 0.5rem; border-radius: 9999px;"
+                                      th:text="${(monthCounts != null && monthCounts['JULIO'] != null ? monthCounts['JULIO'] : 0) + ((monthCounts != null && monthCounts['JULIO'] == 1) ? ' planilla' : ' planillas')}"
+                                      th:styleappend="${(monthCounts != null && monthCounts['JULIO'] != null && monthCounts['JULIO'] > 0) ? 'background: #e0f2fe; color: #0369a1; font-weight: 800;' : ''}">0 planillas</span>
+                            </div>
+
+                            <div onclick="openMonthFolder('AGOSTO')" class="month-folder-card" data-mes="AGOSTO"
+                                 style="border: 1px solid #e2e8f0; border-radius: var(--radius-sm); padding: 1rem; background: #ffffff; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0.5rem;"
+                                 onmouseover="this.style.borderColor='var(--primary)'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 6px -1px rgba(0,0,0,0.07)';"
+                                 onmouseout="this.style.borderColor='#e2e8f0'; this.style.transform='none'; this.style.boxShadow='none';">
+                                <i class="fa-solid fa-folder" style="font-size: 2.2rem; color: #38bdf8;"></i>
+                                <span style="font-weight: 700; font-size: 0.95rem; color: #1e293b;">Agosto</span>
+                                <span class="month-badge-count" style="font-size: 0.72rem; font-weight: 700; background: #f1f5f9; color: #64748b; padding: 0.15rem 0.5rem; border-radius: 9999px;"
+                                      th:text="${(monthCounts != null && monthCounts['AGOSTO'] != null ? monthCounts['AGOSTO'] : 0) + ((monthCounts != null && monthCounts['AGOSTO'] == 1) ? ' planilla' : ' planillas')}"
+                                      th:styleappend="${(monthCounts != null && monthCounts['AGOSTO'] != null && monthCounts['AGOSTO'] > 0) ? 'background: #e0f2fe; color: #0369a1; font-weight: 800;' : ''}">0 planillas</span>
+                            </div>
+
+                            <div onclick="openMonthFolder('SETIEMBRE')" class="month-folder-card" data-mes="SETIEMBRE"
+                                 style="border: 1px solid #e2e8f0; border-radius: var(--radius-sm); padding: 1rem; background: #ffffff; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0.5rem;"
+                                 onmouseover="this.style.borderColor='var(--primary)'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 6px -1px rgba(0,0,0,0.07)';"
+                                 onmouseout="this.style.borderColor='#e2e8f0'; this.style.transform='none'; this.style.boxShadow='none';">
+                                <i class="fa-solid fa-folder" style="font-size: 2.2rem; color: #38bdf8;"></i>
+                                <span style="font-weight: 700; font-size: 0.95rem; color: #1e293b;">Setiembre</span>
+                                <span class="month-badge-count" style="font-size: 0.72rem; font-weight: 700; background: #f1f5f9; color: #64748b; padding: 0.15rem 0.5rem; border-radius: 9999px;"
+                                      th:text="${(monthCounts != null && monthCounts['SETIEMBRE'] != null ? monthCounts['SETIEMBRE'] : 0) + ((monthCounts != null && monthCounts['SETIEMBRE'] == 1) ? ' planilla' : ' planillas')}"
+                                      th:styleappend="${(monthCounts != null && monthCounts['SETIEMBRE'] != null && monthCounts['SETIEMBRE'] > 0) ? 'background: #e0f2fe; color: #0369a1; font-weight: 800;' : ''}">0 planillas</span>
+                            </div>
+
+                            <div onclick="openMonthFolder('OCTUBRE')" class="month-folder-card" data-mes="OCTUBRE"
+                                 style="border: 1px solid #e2e8f0; border-radius: var(--radius-sm); padding: 1rem; background: #ffffff; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0.5rem;"
+                                 onmouseover="this.style.borderColor='var(--primary)'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 6px -1px rgba(0,0,0,0.07)';"
+                                 onmouseout="this.style.borderColor='#e2e8f0'; this.style.transform='none'; this.style.boxShadow='none';">
+                                <i class="fa-solid fa-folder" style="font-size: 2.2rem; color: #38bdf8;"></i>
+                                <span style="font-weight: 700; font-size: 0.95rem; color: #1e293b;">Octubre</span>
+                                <span class="month-badge-count" style="font-size: 0.72rem; font-weight: 700; background: #f1f5f9; color: #64748b; padding: 0.15rem 0.5rem; border-radius: 9999px;"
+                                      th:text="${(monthCounts != null && monthCounts['OCTUBRE'] != null ? monthCounts['OCTUBRE'] : 0) + ((monthCounts != null && monthCounts['OCTUBRE'] == 1) ? ' planilla' : ' planillas')}"
+                                      th:styleappend="${(monthCounts != null && monthCounts['OCTUBRE'] != null && monthCounts['OCTUBRE'] > 0) ? 'background: #e0f2fe; color: #0369a1; font-weight: 800;' : ''}">0 planillas</span>
+                            </div>
+
+                            <div onclick="openMonthFolder('NOVIEMBRE')" class="month-folder-card" data-mes="NOVIEMBRE"
+                                 style="border: 1px solid #e2e8f0; border-radius: var(--radius-sm); padding: 1rem; background: #ffffff; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0.5rem;"
+                                 onmouseover="this.style.borderColor='var(--primary)'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 6px -1px rgba(0,0,0,0.07)';"
+                                 onmouseout="this.style.borderColor='#e2e8f0'; this.style.transform='none'; this.style.boxShadow='none';">
+                                <i class="fa-solid fa-folder" style="font-size: 2.2rem; color: #38bdf8;"></i>
+                                <span style="font-weight: 700; font-size: 0.95rem; color: #1e293b;">Noviembre</span>
+                                <span class="month-badge-count" style="font-size: 0.72rem; font-weight: 700; background: #f1f5f9; color: #64748b; padding: 0.15rem 0.5rem; border-radius: 9999px;"
+                                      th:text="${(monthCounts != null && monthCounts['NOVIEMBRE'] != null ? monthCounts['NOVIEMBRE'] : 0) + ((monthCounts != null && monthCounts['NOVIEMBRE'] == 1) ? ' planilla' : ' planillas')}"
+                                      th:styleappend="${(monthCounts != null && monthCounts['NOVIEMBRE'] != null && monthCounts['NOVIEMBRE'] > 0) ? 'background: #e0f2fe; color: #0369a1; font-weight: 800;' : ''}">0 planillas</span>
+                            </div>
+
+                            <div onclick="openMonthFolder('DICIEMBRE')" class="month-folder-card" data-mes="DICIEMBRE"
+                                 style="border: 1px solid #e2e8f0; border-radius: var(--radius-sm); padding: 1rem; background: #ffffff; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0.5rem;"
+                                 onmouseover="this.style.borderColor='var(--primary)'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 6px -1px rgba(0,0,0,0.07)';"
+                                 onmouseout="this.style.borderColor='#e2e8f0'; this.style.transform='none'; this.style.boxShadow='none';">
+                                <i class="fa-solid fa-folder" style="font-size: 2.2rem; color: #38bdf8;"></i>
+                                <span style="font-weight: 700; font-size: 0.95rem; color: #1e293b;">Diciembre</span>
+                                <span class="month-badge-count" style="font-size: 0.72rem; font-weight: 700; background: #f1f5f9; color: #64748b; padding: 0.15rem 0.5rem; border-radius: 9999px;"
+                                      th:text="${(monthCounts != null && monthCounts['DICIEMBRE'] != null ? monthCounts['DICIEMBRE'] : 0) + ((monthCounts != null && monthCounts['DICIEMBRE'] == 1) ? ' planilla' : ' planillas')}"
+                                      th:styleappend="${(monthCounts != null && monthCounts['DICIEMBRE'] != null && monthCounts['DICIEMBRE'] > 0) ? 'background: #e0f2fe; color: #0369a1; font-weight: 800;' : ''}">0 planillas</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Level 2 / Folder Table Container (used for Jornaleros list or Mensualero Month list) -->
+                    <div id="folderLevelTable" style="display: none;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.75rem;">
+                            <div style="display: flex; align-items: center; gap: 0.6rem;">
+                                <button type="button" id="btnBackFromFolderTable" onclick="handleBackFromTable()" class="btn btn-sm btn-secondary" style="display: flex; align-items: center; gap: 0.4rem; font-weight: 600;">
+                                    <i class="fa-solid fa-arrow-left"></i> Volver
+                                </button>
+                                <button type="button" id="btnRecibosConsolidados" onclick="generarRecibosConsolidados()" class="btn btn-sm" style="background-color: #0284c7; color: white; display: flex; align-items: center; gap: 0.45rem; font-weight: 600; padding: 0.4rem 0.85rem;" title="Generar Recibos Consolidados de las planillas seleccionadas">
+                                    <i class="fa-solid fa-file-invoice"></i> Recibos Consolidados (PDF)
+                                    <span id="badgeSelectedCount" style="background: rgba(255,255,255,0.25); color: white; border-radius: 9999px; padding: 0.1rem 0.45rem; font-size: 0.75rem; margin-left: 0.2rem;">0</span>
+                                </button>
+                            </div>
+                            <h4 id="folderTableTitle" style="margin: 0; font-size: 1rem; color: #1e293b; font-weight: 700;">Planillas en Carpeta</h4>
+                        </div>
+
+                        <div style="overflow-x: auto; border: 1px solid var(--border-color); border-radius: var(--radius-sm);">
+                            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem;">
+                                <thead>
+                                    <tr style="background-color: var(--bg-body); border-bottom: 1px solid var(--border-color);">
+                                        <th style="padding: 0.85rem 0.75rem; text-align: center; width: 45px;">
+                                            <input type="checkbox" id="chkSelectAllPlanillas" onclick="toggleSelectAllPlanillas(this)" title="Seleccionar todas las planillas visibles" style="cursor: pointer; width: 16px; height: 16px;">
+                                        </th>
+                                        <th style="padding: 0.85rem 1.25rem; font-weight: 600; color: var(--text-secondary);">Nombre de la Planilla</th>
+                                        <th style="padding: 0.85rem 1.25rem; font-weight: 600; color: var(--text-secondary); width: 220px; text-align: center;">Periodo</th>
+                                        <th style="padding: 0.85rem 1.25rem; font-weight: 600; color: var(--text-secondary); width: 140px; text-align: center;">Fecha Creación</th>
+                                        <th style="padding: 0.85rem 1.25rem; font-weight: 600; color: var(--text-secondary); width: 140px; text-align: right;">Total Neto</th>
+                                        <th style="padding: 0.85rem 1.25rem; font-weight: 600; color: var(--text-secondary); width: 240px; text-align: center;">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="folderTableTbody">
+                                    <tr id="folderEmptyRow" style="display: none; border-bottom: 1px solid var(--border-color);">
+                                        <td colspan="6" style="padding: 2.5rem 1.5rem; text-align: center; color: var(--text-secondary);">
+                                            <i class="fa-solid fa-folder-open" style="font-size: 2.2rem; color: #cbd5e1; margin-bottom: 0.75rem; display: block;"></i>
+                                            No hay planillas en esta carpeta todavía.
+                                        </td>
+                                    </tr>
+                                    <tr th:each="p : ${planillas}" class="planilla-folder-row"
+                                        th:data-id="${p.id}"
+                                        th:data-nombre="${p.nombre}"
+                                        th:data-tipo="${p.tipoCarpeta != null ? p.tipoCarpeta : 'JORNALEROS'}"
+                                        th:data-mes="${p.subcarpetaMes != null ? p.subcarpetaMes : ''}"
+                                        style="border-bottom: 1px solid var(--border-color); display: none;"
+                                        onmouseover="this.style.backgroundColor='rgba(0,0,0,0.01)'" onmouseout="this.style.backgroundColor='transparent'">
+                                        <td style="padding: 1rem 0.75rem; text-align: center;">
+                                            <input type="checkbox" class="chk-select-planilla" th:data-id="${p.id}" onchange="updateSelectedPlanillasCount()" style="cursor: pointer; width: 16px; height: 16px;">
+                                        </td>
+                                        <td style="padding: 1rem 1.25rem; font-weight: 700; color: var(--dark);" th:text="${p.nombre}">Nombre</td>
+                                        <td style="padding: 1rem 1.25rem; text-align: center; color: var(--text-secondary); font-size: 0.85rem;" 
+                                            th:text="${(p.fechaDesde != null ? #temporals.format(p.fechaDesde, 'dd/MM/yyyy') : '') + ' - ' + (p.fechaHasta != null ? #temporals.format(p.fechaHasta, 'dd/MM/yyyy') : '')}">Periodo</td>
+                                        <td style="padding: 1rem 1.25rem; text-align: center; color: var(--text-secondary); font-size: 0.85rem;" 
+                                            th:text="${p.fechaCreacion != null ? #temporals.format(p.fechaCreacion, 'dd/MM/yyyy HH:mm') : ''}">Fecha</td>
+                                        <td style="padding: 1rem 1.25rem; text-align: right; font-weight: 700; color: var(--primary);" 
+                                            th:text="${p.totalNeto != null ? #numbers.formatDecimal(p.totalNeto, 1, 'POINT', 0, 'POINT') + ' Gs.' : '0 Gs.'}">0 Gs.</td>
+                                        <td style="padding: 1rem 1.25rem; text-align: center;">
+                                            <div style="display: flex; gap: 0.5rem; justify-content: center; flex-wrap: nowrap;">
+                                                <a th:href="@{/salarios/recibos/pdf/{id}(id=${p.id})}" class="btn btn-sm" style="padding: 0.35rem 0.65rem; background-color: #0284c7; color: white;" title="Descargar Recibos de Salario (PDF)" target="_blank">
+                                                    <i class="fa-solid fa-file-invoice"></i> Recibos PDF
+                                                </a>
+                                                <a th:href="@{/salarios/editar/{id}(id=${p.id})}" class="btn btn-sm btn-primary" style="padding: 0.35rem 0.65rem;" title="Visualizar y Modificar">
+                                                    <i class="fa-solid fa-pen-to-square"></i> Editar
+                                                </a>
+                                                <a th:href="@{/salarios/eliminar/{id}(id=${p.id})}" class="btn btn-sm btn-secondary" style="padding: 0.35rem 0.65rem;" title="Eliminar" onclick="return confirm('¿Está seguro de eliminar esta planilla y todos sus detalles?');">
+                                                    <i class="fa-solid fa-trash" style="color: var(--danger);"></i>
+                                                </a>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- ═══════════════════════════════════════════════════════════════ -->
+                <!-- ALL PLANILLAS FLAT LIST VIEW -->
+                <!-- ═══════════════════════════════════════════════════════════════ -->
+                <div id="viewExplorerList" style="display: none; overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem;">
+                        <thead>
+                            <tr style="background-color: var(--bg-body); border-bottom: 1px solid var(--border-color);">
+                                <th style="padding: 1rem 1.5rem; font-weight: 600; color: var(--text-secondary);">Nombre de la Planilla</th>
+                                <th style="padding: 1rem 1.25rem; font-weight: 600; color: var(--text-secondary); width: 190px; text-align: center;">Carpeta / Mes</th>
+                                <th style="padding: 1rem 1.5rem; font-weight: 600; color: var(--text-secondary); width: 200px; text-align: center;">Periodo</th>
+                                <th style="padding: 1rem 1.5rem; font-weight: 600; color: var(--text-secondary); width: 140px; text-align: center;">Fecha Creación</th>
+                                <th style="padding: 1rem 1.5rem; font-weight: 600; color: var(--text-secondary); width: 140px; text-align: right;">Total Neto</th>
+                                <th style="padding: 1rem 1.5rem; font-weight: 600; color: var(--text-secondary); width: 240px; text-align: center;">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:if="${#lists.isEmpty(planillas)}" style="border-bottom: 1px solid var(--border-color);">
+                                <td colspan="6" style="padding: 3rem 1.5rem; text-align: center; color: var(--text-secondary);">
+                                    <i class="fa-solid fa-receipt" style="font-size: 2.5rem; color: var(--border-color); margin-bottom: 1rem; display: block;"></i>
+                                    No hay planillas salariales guardadas. Seleccione un rango de fechas arriba para crear su primera liquidación.
+                                </td>
+                            </tr>
+                            <tr th:each="p : ${planillas}" class="all-planillas-raw-row" 
+                                th:data-id="${p.id}"
+                                th:data-nombre="${p.nombre}"
+                                th:data-tipo="${p.tipoCarpeta != null ? p.tipoCarpeta : 'JORNALEROS'}"
+                                th:data-mes="${p.subcarpetaMes}"
+                                th:data-desde="${p.fechaDesde != null ? #temporals.format(p.fechaDesde, 'dd/MM/yyyy') : ''}"
+                                th:data-hasta="${p.fechaHasta != null ? #temporals.format(p.fechaHasta, 'dd/MM/yyyy') : ''}"
+                                th:data-creacion="${p.fechaCreacion != null ? #temporals.format(p.fechaCreacion, 'dd/MM/yyyy HH:mm') : ''}"
+                                th:data-total="${p.totalNeto != null ? #numbers.formatDecimal(p.totalNeto, 1, 'POINT', 0, 'POINT') + ' Gs.' : '0 Gs.'}"
+                                style="border-bottom: 1px solid var(--border-color); transition: var(--transition);" 
+                                onmouseover="this.style.backgroundColor='rgba(0,0,0,0.01)'" onmouseout="this.style.backgroundColor='transparent'">
+                                <td style="padding: 1rem 1.5rem; font-weight: 700; color: var(--dark);" th:text="${p.nombre}">Semana 1 Julio</td>
+                                <td style="padding: 1rem 1.25rem; text-align: center;">
+                                    <span th:if="${p.tipoCarpeta == 'MENSUALEROS'}" style="display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.75rem; font-weight: 700; background: #e0f2fe; color: #0369a1; padding: 0.25rem 0.6rem; border-radius: 9999px;">
+                                        <i class="fa-solid fa-folder"></i> Mensualero - <span th:text="${p.subcarpetaMes != null ? p.subcarpetaMes : 'General'}">AGOSTO</span>
+                                    </span>
+                                    <span th:unless="${p.tipoCarpeta == 'MENSUALEROS'}" style="display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.75rem; font-weight: 700; background: #fef3c7; color: #b45309; padding: 0.25rem 0.6rem; border-radius: 9999px;">
+                                        <i class="fa-solid fa-folder"></i> Jornalero
+                                    </span>
+                                </td>
+                                <td style="padding: 1rem 1.5rem; text-align: center; color: var(--text-secondary); font-size: 0.85rem;" th:text="${(p.fechaDesde != null ? #temporals.format(p.fechaDesde, 'dd/MM/yyyy') : '') + ' - ' + (p.fechaHasta != null ? #temporals.format(p.fechaHasta, 'dd/MM/yyyy') : '')}">20/07/2026 - 26/07/2026</td>
+                                <td style="padding: 1rem 1.5rem; text-align: center; color: var(--text-secondary); font-size: 0.85rem;" th:text="${p.fechaCreacion != null ? #temporals.format(p.fechaCreacion, 'dd/MM/yyyy HH:mm') : ''}">20/07/2026 14:00</td>
+                                <td style="padding: 1rem 1.5rem; text-align: right; font-weight: 700; color: var(--primary);" th:text="${p.totalNeto != null ? #numbers.formatDecimal(p.totalNeto, 1, 'POINT', 0, 'POINT') + ' Gs.' : '0 Gs.'}">0 Gs.</td>
+                                <td style="padding: 1rem 1.5rem; text-align: center;">
+                                    <div style="display: flex; gap: 0.5rem; justify-content: center; flex-wrap: nowrap;">
+                                        <a th:href="@{/salarios/recibos/pdf/{id}(id=${p.id})}" class="btn btn-sm" style="padding: 0.35rem 0.65rem; background-color: #0284c7; color: white;" title="Descargar Recibos de Salario (PDF)" target="_blank">
+                                            <i class="fa-solid fa-file-invoice"></i> Recibos PDF
+                                        </a>
+                                        <a th:href="@{/salarios/editar/{id}(id=${p.id})}" class="btn btn-sm btn-primary" style="padding: 0.35rem 0.65rem;" title="Visualizar y Modificar">
+                                            <i class="fa-solid fa-pen-to-square"></i> Editar
+                                        </a>
+                                        <a th:href="@{/salarios/eliminar/{id}(id=${p.id})}" class="btn btn-sm btn-secondary" style="padding: 0.35rem 0.65rem;" title="Eliminar" onclick="return confirm('¿Está seguro de eliminar esta planilla y todos sus detalles?');">
+                                            <i class="fa-solid fa-trash" style="color: var(--danger);"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Tab 2: Configurar Tarifas de Hora -->
+        <div id="content-tarifas" class="tab-content">
+            <!-- Add New Employee Card -->
+            <div class="card" style="padding: 1.25rem 1.5rem; margin-bottom: 1.5rem;">
+                <h3 class="card-title" style="font-size: 1.1rem; margin-bottom: 1rem;"><i class="fa-solid fa-user-plus" style="color: var(--primary); margin-right: 0.35rem;"></i> Agregar Nuevo Empleado</h3>
+                <form id="addEmployeeForm" onsubmit="agregarEmpleado(event)" style="display: grid; grid-template-columns: 1.5fr 3fr 2fr 2fr auto; gap: 1rem; align-items: end;">
+                    <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+                        <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary);" for="newCedula">Cédula *</label>
+                        <input type="text" id="newCedula" required placeholder="Ej. 1.234.567" style="padding: 0.5rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); font-size: 0.9rem; width: 100%;">
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+                        <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary);" for="newNombre">Nombre Completo *</label>
+                        <input type="text" id="newNombre" required placeholder="Ej. Juan Pérez" style="padding: 0.5rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); font-size: 0.9rem; width: 100%;">
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+                        <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary);" for="newNormal">Tarifa Normal (Gs/Hora) *</label>
+                        <input type="text" inputmode="decimal" id="newNormal" value="15000" required style="padding: 0.5rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); font-size: 0.9rem; width: 100%;">
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+                        <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary);" for="newExtra">Tarifa Extra (Gs/Hora) *</label>
+                        <input type="text" inputmode="decimal" id="newExtra" value="22500" required style="padding: 0.5rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); font-size: 0.9rem; width: 100%;">
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="height: 38px;">
+                        <i class="fa-solid fa-plus"></i> Agregar
+                    </button>
+                </form>
+            </div>
+
+            <!-- Tarifas List Card -->
+            <div class="card" style="padding: 0; overflow: hidden;">
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 1.5rem 1.75rem; border-bottom: 1px solid var(--border-color);">
+                    <h3 class="card-title" style="margin-bottom: 0;"><i class="fa-solid fa-users" style="color: var(--primary); margin-right: 0.5rem;"></i> Personal Registrado</h3>
+                    <span style="font-size: 0.8rem; background-color: var(--primary-light); color: var(--primary-hover); font-weight: 600; padding: 0.25rem 0.75rem; border-radius: 9999px;">
+                        Precios en Guaraníes (Gs.)
+                    </span>
+                </div>
+
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem;">
+                        <thead>
+                            <tr style="background-color: var(--bg-body); border-bottom: 1px solid var(--border-color);">
+                                <th style="padding: 1rem 1.5rem; font-weight: 600; color: var(--text-secondary); width: 150px;">Cédula</th>
+                                <th style="padding: 1rem 1.5rem; font-weight: 600; color: var(--text-secondary);">Nombre Completo</th>
+                                <th style="padding: 1rem 1.5rem; font-weight: 600; color: var(--text-secondary); text-align: center; width: 180px;">Tarifa Normal (Gs./Hora)</th>
+                                <th style="padding: 1rem 1.5rem; font-weight: 600; color: var(--text-secondary); text-align: center; width: 180px;">Tarifa Extra (Gs./Hora)</th>
+                                <th style="padding: 1rem 1.5rem; font-weight: 600; color: var(--text-secondary); text-align: center; width: 180px;">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:if="${#lists.isEmpty(tarifas)}" style="border-bottom: 1px solid var(--border-color);">
+                                <td colspan="5" style="padding: 3rem 1.5rem; text-align: center; color: var(--text-secondary);">
+                                    No hay empleados registrados en el sistema.
+                                </td>
+                            </tr>
+                            <tr th:each="t : ${tarifas}" style="border-bottom: 1px solid var(--border-color); transition: var(--transition);" onmouseover="this.style.backgroundColor='rgba(0,0,0,0.01)'" onmouseout="this.style.backgroundColor='transparent'">
+                                <td style="padding: 1rem 1.5rem; font-weight: 700; color: var(--dark);" th:text="${t.cedula}">000000</td>
+                                
+                                <!-- Nombre input (editable) -->
+                                <td style="padding: 0.5rem 1rem;">
+                                    <input type="text" class="input-nombre" th:value="${t.nombre}" 
+                                           style="width: 100%; padding: 0.4rem 0.6rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); font-size: 0.9rem; font-family: inherit; font-weight: 600; color: var(--dark);">
+                                </td>
+                                
+                                <!-- Tarifa Normal input -->
+                                <td style="padding: 1rem 1.5rem; text-align: center;">
+                                    <input type="text" inputmode="decimal" class="input-normal" th:value="${t.pagoHoraNormal != null ? #numbers.formatDecimal(t.pagoHoraNormal, 1, 'NONE', 0, 'POINT') : '0'}" 
+                                           style="width: 120px; padding: 0.4rem 0.6rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); font-size: 0.9rem; text-align: center; font-family: inherit;">
+                                </td>
+                                
+                                <!-- Tarifa Extra input -->
+                                <td style="padding: 1rem 1.5rem; text-align: center;">
+                                    <input type="text" inputmode="decimal" class="input-extra" th:value="${t.pagoHoraExtra != null ? #numbers.formatDecimal(t.pagoHoraExtra, 1, 'NONE', 0, 'POINT') : '0'}" 
+                                           style="width: 120px; padding: 0.4rem 0.6rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); font-size: 0.9rem; text-align: center; font-family: inherit;">
+                                </td>
+                                
+                                <!-- Actions (Save and Delete) -->
+                                <td style="padding: 1rem 1.5rem; text-align: center;">
+                                    <div style="display: flex; gap: 0.35rem; justify-content: center;">
+                                        <button type="button" class="btn btn-sm btn-primary" style="padding: 0.4rem 0.65rem;"
+                                                th:data-cedula="${t.cedula}" onclick="guardarEmpleado(this, this.getAttribute('data-cedula'))" title="Guardar cambios">
+                                            <i class="fa-solid fa-floppy-disk"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-secondary" style="padding: 0.4rem 0.65rem;"
+                                                th:data-cedula="${t.cedula}" onclick="eliminarEmpleado(this.getAttribute('data-cedula'))" title="Eliminar empleado">
+                                            <i class="fa-solid fa-trash" style="color: var(--danger);"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Layout Scripts -->
+    <th:block th:replace="~{layout :: scripts}"></th:block>
+
+    <!-- Navigation and AJAX scripting -->
+    <script>
+        // ─────────────────────────────────────────────────────────────────────────
+        // Lógica del Explorador de Carpetas de Planillas
+        // ─────────────────────────────────────────────────────────────────────────
+        const MONTH_NAMES = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SETIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'];
+
+        function isMensualeroName(nom) {
+            if (!nom) return false;
+            const n = nom.toUpperCase();
+            return n.includes('MENSUAL') || n.includes('MESUAL') || n.includes('TRIPULANTE') || n.includes('OFICINA');
+        }
+
+        function initFolderCounts() {
+            try {
+                const rows = document.querySelectorAll('.planilla-folder-row');
+                let countJornaleros = 0;
+                let countMensualeros = 0;
+                const monthCounts = {};
+                MONTH_NAMES.forEach(m => monthCounts[m] = 0);
+
+                rows.forEach(r => {
+                    const tipo = (r.getAttribute('data-tipo') || '').toUpperCase().trim();
+                    const mes = (r.getAttribute('data-mes') || '').toUpperCase().trim();
+                    const nom = (r.getAttribute('data-nombre') || (r.querySelector('td:nth-child(2)') ? r.querySelector('td:nth-child(2)').innerText : '')).toUpperCase();
+
+                    let isMensualero = (tipo === 'MENSUALEROS') || isMensualeroName(nom);
+
+                    if (isMensualero) {
+                        countMensualeros++;
+                        let assignedMonth = mes;
+                        if (!assignedMonth || assignedMonth === '') {
+                            for (const m of MONTH_NAMES) {
+                                if (nom.includes(m)) { assignedMonth = m; break; }
+                            }
+                            if (nom.includes('SEPTIEMBRE')) assignedMonth = 'SETIEMBRE';
+                        }
+                        if (assignedMonth === 'SEPTIEMBRE') assignedMonth = 'SETIEMBRE';
+
+                        if (assignedMonth && monthCounts[assignedMonth] !== undefined) {
+                            monthCounts[assignedMonth]++;
+                        }
+                    } else {
+                        countJornaleros++;
+                    }
+                });
+
+                const spanTotal = document.getElementById('spanTotalPlanillas');
+                if (spanTotal) spanTotal.textContent = rows.length;
+
+                const badgeJorn = document.getElementById('badgeCountJornaleros');
+                if (badgeJorn) badgeJorn.textContent = `${countJornaleros} ${countJornaleros === 1 ? 'planilla' : 'planillas'}`;
+
+                const badgeMens = document.getElementById('badgeCountMensualeros');
+                if (badgeMens) {
+                    badgeMens.textContent = `${countMensualeros} ${countMensualeros === 1 ? 'planilla' : 'planillas'}`;
+                    if (countMensualeros > 0) {
+                        badgeMens.style.background = '#e0f2fe';
+                        badgeMens.style.color = '#0369a1';
+                        badgeMens.style.fontWeight = '800';
+                    }
+                }
+
+                MONTH_NAMES.forEach(m => {
+                    const c = monthCounts[m] || 0;
+                    const card = document.querySelector(`.month-folder-card[data-mes="${m}"]`);
+                    if (card) {
+                        const badge = card.querySelector('.month-badge-count');
+                        if (badge) {
+                            badge.textContent = `${c} ${c === 1 ? 'planilla' : 'planillas'}`;
+                            if (c > 0) {
+                                badge.style.background = '#e0f2fe';
+                                badge.style.color = '#0369a1';
+                                badge.style.fontWeight = '800';
+                            } else {
+                                badge.style.background = '#f1f5f9';
+                                badge.style.color = '#94a3b8';
+                                badge.style.fontWeight = '600';
+                            }
+                        }
+                    }
+                });
+            } catch (err) {
+                console.error('Error calculando contadores:', err);
+            }
+        }
+
+        function switchPlanillasView(mode) {
+            try {
+                const btnFolders = document.getElementById('btnModeFolders');
+                const btnList = document.getElementById('btnModeList');
+                const viewFolders = document.getElementById('viewExplorerFolders');
+                const viewList = document.getElementById('viewExplorerList');
+
+                if (mode === 'folders') {
+                    if (viewFolders) viewFolders.style.display = 'block';
+                    if (viewList) viewList.style.display = 'none';
+                    if (btnFolders) {
+                        btnFolders.style.background = '#fff';
+                        btnFolders.style.color = 'var(--primary)';
+                        btnFolders.style.boxShadow = '0 1px 2px rgba(0,0,0,0.05)';
+                    }
+                    if (btnList) {
+                        btnList.style.background = 'transparent';
+                        btnList.style.color = '#64748b';
+                        btnList.style.boxShadow = 'none';
+                    }
+                    backToRootFolders();
+                } else {
+                    if (viewFolders) viewFolders.style.display = 'none';
+                    if (viewList) viewList.style.display = 'block';
+                    if (btnList) {
+                        btnList.style.background = '#fff';
+                        btnList.style.color = 'var(--primary)';
+                        btnList.style.boxShadow = '0 1px 2px rgba(0,0,0,0.05)';
+                    }
+                    if (btnFolders) {
+                        btnFolders.style.background = 'transparent';
+                        btnFolders.style.color = '#64748b';
+                        btnFolders.style.boxShadow = 'none';
+                    }
+                    updateBreadcrumbs('TODAS');
+                }
+            } catch (err) {
+                console.error('Error in switchPlanillasView:', err);
+            }
+        }
+
+        function openMensualerosFolder(e) {
+            if (e && e.stopPropagation) e.stopPropagation();
+            try {
+                const root = document.getElementById('folderLevelRoot');
+                const table = document.getElementById('folderLevelTable');
+                const mensualeros = document.getElementById('folderLevelMensualerosMonths');
+                if (root) root.style.display = 'none';
+                if (table) table.style.display = 'none';
+                if (mensualeros) mensualeros.style.display = 'block';
+                updateBreadcrumbs('MENSUALEROS');
+            } catch (err) {
+                console.error('Error in openMensualerosFolder:', err);
+            }
+        }
+
+        function clearPlanillaSelections() {
+            try {
+                document.querySelectorAll('.chk-select-planilla').forEach(c => c.checked = false);
+                const master = document.getElementById('chkSelectAllPlanillas');
+                if (master) {
+                    master.checked = false;
+                    master.indeterminate = false;
+                }
+                const badge = document.getElementById('badgeSelectedCount');
+                if (badge) badge.textContent = '0';
+            } catch (err) {
+                console.error('Error clearing planilla selections:', err);
+            }
+        }
+
+        function updateSelectedPlanillasCount() {
+            try {
+                const visibleCheckboxes = Array.from(document.querySelectorAll('.planilla-folder-row'))
+                    .filter(r => r.style.display !== 'none')
+                    .map(r => r.querySelector('.chk-select-planilla'))
+                    .filter(chk => chk !== null);
+
+                const selected = visibleCheckboxes.filter(chk => chk.checked);
+                const count = selected.length;
+
+                const badge = document.getElementById('badgeSelectedCount');
+                if (badge) badge.textContent = count;
+
+                const masterChk = document.getElementById('chkSelectAllPlanillas');
+                if (masterChk) {
+                    masterChk.checked = (visibleCheckboxes.length > 0 && selected.length === visibleCheckboxes.length);
+                    masterChk.indeterminate = (selected.length > 0 && selected.length < visibleCheckboxes.length);
+                }
+            } catch (err) {
+                console.error('Error in updateSelectedPlanillasCount:', err);
+            }
+        }
+
+        function toggleSelectAllPlanillas(master) {
+            try {
+                const checked = master ? master.checked : false;
+                const visibleRows = Array.from(document.querySelectorAll('.planilla-folder-row'))
+                    .filter(r => r.style.display !== 'none');
+
+                visibleRows.forEach(r => {
+                    const chk = r.querySelector('.chk-select-planilla');
+                    if (chk) chk.checked = checked;
+                });
+                updateSelectedPlanillasCount();
+            } catch (err) {
+                console.error('Error in toggleSelectAllPlanillas:', err);
+            }
+        }
+
+        function generarRecibosConsolidados() {
+            try {
+                const visibleRows = Array.from(document.querySelectorAll('.planilla-folder-row'))
+                    .filter(r => r.style.display !== 'none');
+
+                const selectedIds = [];
+                visibleRows.forEach(r => {
+                    const chk = r.querySelector('.chk-select-planilla');
+                    if (chk && chk.checked) {
+                        const id = chk.getAttribute('data-id');
+                        if (id) selectedIds.push(id);
+                    }
+                });
+
+                if (selectedIds.length === 0) {
+                    alert('Por favor, marque la casilla de al menos una planilla para generar los recibos consolidados.');
+                    return;
+                }
+
+                const url = '/salarios/recibos/pdf/consolidado?ids=' + selectedIds.join(',');
+                window.open(url, '_blank');
+            } catch (err) {
+                console.error('Error in generarRecibosConsolidados:', err);
+            }
+        }
+
+        function backToRootFolders(e) {
+            if (e && e.stopPropagation) e.stopPropagation();
+            try {
+                clearPlanillaSelections();
+                const root = document.getElementById('folderLevelRoot');
+                const table = document.getElementById('folderLevelTable');
+                const mensualeros = document.getElementById('folderLevelMensualerosMonths');
+                if (mensualeros) mensualeros.style.display = 'none';
+                if (table) table.style.display = 'none';
+                if (root) root.style.display = 'grid';
+                updateBreadcrumbs('ROOT');
+            } catch (err) {
+                console.error('Error in backToRootFolders:', err);
+            }
+        }
+
+        function openJornalerosFolder(e) {
+            if (e && e.stopPropagation) e.stopPropagation();
+            try {
+                clearPlanillaSelections();
+                const root = document.getElementById('folderLevelRoot');
+                const mensualeros = document.getElementById('folderLevelMensualerosMonths');
+                const table = document.getElementById('folderLevelTable');
+                if (root) root.style.display = 'none';
+                if (mensualeros) mensualeros.style.display = 'none';
+                if (table) table.style.display = 'block';
+
+                const titleEl = document.getElementById('folderTableTitle');
+                if (titleEl) titleEl.innerHTML = '<i class="fa-solid fa-folder-open" style="color: #d97706;"></i> Planillas: <b>Personales Jornaleros</b>';
+                updateBreadcrumbs('JORNALEROS');
+
+                const rows = document.querySelectorAll('.planilla-folder-row');
+                let count = 0;
+                rows.forEach(r => {
+                    const tipo = (r.getAttribute('data-tipo') || '').toUpperCase().trim();
+                    const nom = (r.querySelector('td:nth-child(2)') ? r.querySelector('td:nth-child(2)').innerText : '').toUpperCase();
+                    let isMens = (tipo === 'MENSUALEROS') || isMensualeroName(nom);
+                    if (!isMens) {
+                        r.style.display = '';
+                        count++;
+                    } else {
+                        r.style.display = 'none';
+                    }
+                });
+
+                const emptyRow = document.getElementById('folderEmptyRow');
+                if (emptyRow) {
+                    emptyRow.style.display = (count === 0) ? '' : 'none';
+                }
+                updateSelectedPlanillasCount();
+            } catch (err) {
+                console.error('Error in openJornalerosFolder:', err);
+            }
+        }
+
+        function openMonthFolder(month, e) {
+            if (e && e.stopPropagation) e.stopPropagation();
+            try {
+                clearPlanillaSelections();
+                const root = document.getElementById('folderLevelRoot');
+                const mensualeros = document.getElementById('folderLevelMensualerosMonths');
+                const table = document.getElementById('folderLevelTable');
+                if (root) root.style.display = 'none';
+                if (mensualeros) mensualeros.style.display = 'none';
+                if (table) table.style.display = 'block';
+
+                const m = month ? String(month).toUpperCase().trim() : '';
+                const mCapital = m ? (m.charAt(0) + m.slice(1).toLowerCase()) : '';
+                const titleEl = document.getElementById('folderTableTitle');
+                if (titleEl) titleEl.innerHTML = `<i class="fa-solid fa-folder-open" style="color: #0284c7;"></i> Personales Mensualeros: <b>${mCapital}</b>`;
+                updateBreadcrumbs('MENSUALERO_MONTH', mCapital);
+
+                const rows = document.querySelectorAll('.planilla-folder-row');
+                let count = 0;
+                rows.forEach(r => {
+                    const tipo = (r.getAttribute('data-tipo') || '').toUpperCase().trim();
+                    const mes = (r.getAttribute('data-mes') || '').toUpperCase().trim();
+                    const nom = (r.querySelector('td:nth-child(2)') ? r.querySelector('td:nth-child(2)').innerText : '').toUpperCase();
+
+                    let isMens = (tipo === 'MENSUALEROS') || isMensualeroName(nom);
+                    let match = false;
+                    if (isMens) {
+                        if (mes === m || (m === 'SETIEMBRE' && (mes === 'SEPTIEMBRE' || mes === 'SETIEMBRE'))) {
+                            match = true;
+                        } else if (nom.includes(m) || (m === 'SETIEMBRE' && (nom.includes('SEPTIEMBRE') || nom.includes('SETIEMBRE')))) {
+                            match = true;
+                        }
+                    }
+
+                    if (match) {
+                        r.style.display = '';
+                        count++;
+                    } else {
+                        r.style.display = 'none';
+                    }
+                });
+
+                const emptyRow = document.getElementById('folderEmptyRow');
+                if (emptyRow) {
+                    emptyRow.style.display = (count === 0) ? '' : 'none';
+                }
+                updateSelectedPlanillasCount();
+            } catch (err) {
+                console.error('Error in openMonthFolder:', err);
+            }
+        }
+
+        function handleBackFromTable(e) {
+            if (e && e.stopPropagation) e.stopPropagation();
+            try {
+                const titleEl = document.getElementById('folderTableTitle');
+                if (titleEl && titleEl.innerText.includes('Mensualeros')) {
+                    openMensualerosFolder(e);
+                } else {
+                    backToRootFolders(e);
+                }
+            } catch (err) {
+                console.error('Error in handleBackFromTable:', err);
+                backToRootFolders(e);
+            }
+        }
+
+        function navigateToFolder(level) {
+            if (level === 'ROOT') backToRootFolders();
+            else if (level === 'MENSUALEROS') openMensualerosFolder();
+            else if (level === 'JORNALEROS') openJornalerosFolder();
+        }
+
+        function renderFolderView() {
+            backToRootFolders();
+        }
+
+        function updateBreadcrumbs(state, extraInfo) {
+            try {
+                const bar = document.getElementById('breadcrumbBar');
+                if (!bar) return;
+
+                if (state === 'TODAS') {
+                    bar.innerHTML = `<span><i class="fa-solid fa-table-list"></i> Todas las planillas guardadas</span>`;
+                    return;
+                }
+
+                let html = `<span style="cursor: pointer; color: var(--primary);" onclick="backToRootFolders()"><i class="fa-solid fa-folder"></i> Inicio (Carpetas)</span>`;
+
+                if (state === 'JORNALEROS') {
+                    html += ` <i class="fa-solid fa-chevron-right" style="font-size: 0.7rem; color: #cbd5e1;"></i> <span style="color: #1e293b; font-weight: 700;"><i class="fa-solid fa-folder-open" style="color: #d97706;"></i> Personales Jornaleros</span>`;
+                } else if (state === 'MENSUALEROS') {
+                    html += ` <i class="fa-solid fa-chevron-right" style="font-size: 0.7rem; color: #cbd5e1;"></i> <span style="color: #1e293b; font-weight: 700;"><i class="fa-solid fa-folder-open" style="color: #0284c7;"></i> Personales Mensualeros (Meses)</span>`;
+                } else if (state === 'MENSUALERO_MONTH') {
+                    html += ` <i class="fa-solid fa-chevron-right" style="font-size: 0.7rem; color: #cbd5e1;"></i> <span style="cursor: pointer; color: var(--primary);" onclick="openMensualerosFolder()"><i class="fa-solid fa-folder"></i> Personales Mensualeros</span>`;
+                    html += ` <i class="fa-solid fa-chevron-right" style="font-size: 0.7rem; color: #cbd5e1;"></i> <span style="color: #1e293b; font-weight: 700;"><i class="fa-solid fa-folder-open" style="color: #0284c7;"></i> ${extraInfo}</span>`;
+                }
+
+                bar.innerHTML = html;
+            } catch (err) {
+                console.error('Error in updateBreadcrumbs:', err);
+            }
+        }
+
+        function switchTab(tabId) {
+            try {
+                document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+                
+                const activeBtn = Array.from(document.querySelectorAll('.tab-btn')).find(btn => {
+                    const attr = btn.getAttribute('onclick');
+                    return attr && attr.includes(tabId);
+                });
+                if (activeBtn) activeBtn.classList.add('active');
+                
+                const content = document.getElementById('content-' + tabId);
+                if (content) content.classList.add('active');
+            } catch (err) {
+                console.error('Error switching tab:', err);
+            }
+        }
+
+        function parseRate(val) {
+            if (!val) return 0;
+            let str = String(val).trim();
+            if (str.indexOf('.') !== -1 && str.indexOf(',') !== -1) {
+                if (str.lastIndexOf(',') > str.lastIndexOf('.')) {
+                    str = str.replace(/\./g, '').replace(',', '.');
+                } else {
+                    str = str.replace(/,/g, '');
+                }
+            } else if (str.indexOf(',') !== -1) {
+                str = str.replace(',', '.');
+            }
+            let num = parseFloat(str);
+            return isNaN(num) ? 0 : num;
+        }
+
+        function agregarEmpleado(event) {
+            event.preventDefault();
+            const newCedula = document.getElementById('newCedula').value.trim();
+            const newNombre = document.getElementById('newNombre').value.trim();
+            const newNormal = parseRate(document.getElementById('newNormal').value);
+            const newExtra = parseRate(document.getElementById('newExtra').value);
+
+            if (!newCedula || !newNombre || isNaN(newNormal) || isNaN(newExtra)) {
+                alert('Por favor complete todos los campos.');
+                return;
+            }
+
+            fetch('/salarios/agregar-empleado', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams({
+                    'cedula': newCedula,
+                    'nombre': newNombre,
+                    'pagoHoraNormal': newNormal,
+                    'pagoHoraExtra': newExtra
+                })
+            })
+            .then(response => {
+                if (response.ok) {
+                    alert('Empleado agregado correctamente.');
+                    window.location.href = '/salarios?tab=tarifas';
+                } else {
+                    alert('Error al agregar empleado. Verifique si la cédula ya existe.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error de conexión.');
+            });
+        }
+
+        function guardarEmpleado(btn, cedula) {
+            const row = btn.closest('tr');
+            const nombreInput = row.querySelector('.input-nombre');
+            const normalInput = row.querySelector('.input-normal');
+            const extraInput = row.querySelector('.input-extra');
+            
+            const nombre = nombreInput.value.trim();
+            const normal = parseRate(normalInput.value);
+            const extra = parseRate(extraInput.value);
+
+            if (!nombre || isNaN(normal) || normal < 0 || isNaN(extra) || extra < 0) {
+                alert('Por favor ingrese valores válidos.');
+                return;
+            }
+
+            const icon = btn.querySelector('i');
+            icon.className = 'fa-solid fa-spinner fa-spin';
+            btn.disabled = true;
+
+            fetch('/salarios/guardar-empleado', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams({
+                    'cedula': cedula,
+                    'nombre': nombre,
+                    'pagoHoraNormal': normal,
+                    'pagoHoraExtra': extra
+                })
+            })
+            .then(response => {
+                if (response.ok) {
+                    icon.className = 'fa-solid fa-check';
+                    btn.style.backgroundColor = 'var(--success)';
+                    btn.style.borderColor = 'var(--success)';
+                    setTimeout(() => {
+                        icon.className = 'fa-solid fa-floppy-disk';
+                        btn.style.backgroundColor = 'var(--primary)';
+                        btn.style.borderColor = 'var(--primary)';
+                        btn.disabled = false;
+                    }, 1000);
+                } else {
+                    alert('Error al guardar datos del empleado.');
+                    icon.className = 'fa-solid fa-floppy-disk';
+                    btn.disabled = false;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Fallo de conexión.');
+                icon.className = 'fa-solid fa-floppy-disk';
+                btn.disabled = false;
+            });
+        }
+
+        function eliminarEmpleado(cedula) {
+            if (!confirm('¿Está seguro de eliminar a este empleado del registro de salarios? (No se borrarán sus marcaciones de asistencia históricas)')) {
+                return;
+            }
+
+            fetch('/salarios/eliminar-empleado', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams({
+                    'cedula': cedula
+                })
+            })
+            .then(response => {
+                if (response.ok) {
+                    alert('Empleado eliminado del registro.');
+                    window.location.href = '/salarios?tab=tarifas';
+                } else {
+                    alert('Error al eliminar empleado.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Fallo de conexión.');
+            });
+        }
+
+        // Exponer funciones globalmente en window
+        window.switchTab = switchTab;
+        window.switchPlanillasView = switchPlanillasView;
+        window.navigateToFolder = navigateToFolder;
+        window.openMensualerosFolder = openMensualerosFolder;
+        window.backToRootFolders = backToRootFolders;
+        window.openJornalerosFolder = openJornalerosFolder;
+        window.navigateToMonth = openMonthFolder;
+        window.openMonthFolder = openMonthFolder;
+        window.handleBackFromTable = handleBackFromTable;
+        window.initFolderCounts = initFolderCounts;
+        window.renderFolderView = renderFolderView;
+        window.agregarEmpleado = agregarEmpleado;
+        window.guardarEmpleado = guardarEmpleado;
+        window.eliminarEmpleado = eliminarEmpleado;
+        window.toggleSelectAllPlanillas = toggleSelectAllPlanillas;
+        window.updateSelectedPlanillasCount = updateSelectedPlanillasCount;
+        window.generarRecibosConsolidados = generarRecibosConsolidados;
+
+        // Auto-run inicializador
+        function setupInit() {
+            try {
+                const urlParams = new URLSearchParams(window.location.search);
+                const activeTab = urlParams.get('tab');
+                if (activeTab) {
+                    switchTab(activeTab);
+                }
+                initFolderCounts();
+
+                // Asegurar listeners directos para las tarjetas
+                const cardJorn = document.getElementById('cardFolderJornaleros');
+                if (cardJorn) {
+                    cardJorn.addEventListener('click', function(e) {
+                        openJornalerosFolder(e);
+                    });
+                }
+                const cardMens = document.getElementById('cardFolderMensualeros');
+                if (cardMens) {
+                    cardMens.addEventListener('click', function(e) {
+                        openMensualerosFolder(e);
+                    });
+                }
+                document.querySelectorAll('.month-folder-card').forEach(function(card) {
+                    card.addEventListener('click', function(e) {
+                        const m = card.getAttribute('data-mes');
+                        openMonthFolder(m, e);
+                    });
+                });
+            } catch (err) {
+                console.error('Error en setupInit:', err);
+            }
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', setupInit);
+        } else {
+            setupInit();
+        }
+    </script>
+
+</body>
+</html>

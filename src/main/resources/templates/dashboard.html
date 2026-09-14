@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security" lang="es">
+<head th:replace="~{layout :: head('Dashboard')}">
+    <title>Dashboard</title>
+</head>
+<body>
+
+    <!-- Sidebar Navigation -->
+    <aside th:replace="~{layout :: sidebar('dashboard')}"></aside>
+
+    <!-- Main Wrapper -->
+    <div class="main-wrapper">
+        <!-- Header -->
+        <header th:replace="~{layout :: header('Dashboard', 'Estadísticas rápidas y políticas de horarios')}"></header>
+
+        <!-- Flash alerts -->
+        <div th:replace="~{layout :: alerts}"></div>
+
+        <!-- Stats Grid -->
+        <div class="grid-stats" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.5rem; margin-bottom: 2.5rem;">
+            <!-- Total -->
+            <div class="stat-card" style="background-color: var(--card-bg); border-radius: var(--radius-md); border: 1px solid var(--border-color); padding: 1.5rem; display: flex; align-items: center; gap: 1.25rem; box-shadow: var(--shadow-sm); transition: var(--transition);">
+                <div class="stat-icon" style="width: 54px; height: 54px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font-size: 1.5rem; background-color: rgba(79, 70, 229, 0.1); color: var(--primary);">
+                    <i class="fa-solid fa-users"></i>
+                </div>
+                <div class="stat-info" style="display: flex; flex-direction: column;">
+                    <span class="stat-value" style="font-size: 1.75rem; font-weight: 700; color: var(--dark); line-height: 1.2; font-family: 'Outfit', sans-serif;" th:text="${stats.total}">0</span>
+                    <span class="stat-label" style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 500;">Total Marcaciones</span>
+                </div>
+            </div>
+
+            <!-- Normales -->
+            <div class="stat-card" style="background-color: var(--card-bg); border-radius: var(--radius-md); border: 1px solid var(--border-color); padding: 1.5rem; display: flex; align-items: center; gap: 1.25rem; box-shadow: var(--shadow-sm); transition: var(--transition);">
+                <div class="stat-icon" style="width: 54px; height: 54px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font-size: 1.5rem; background-color: rgba(16, 185, 129, 0.1); color: var(--success);">
+                    <i class="fa-solid fa-circle-check"></i>
+                </div>
+                <div class="stat-info" style="display: flex; flex-direction: column;">
+                    <span class="stat-value" style="font-size: 1.75rem; font-weight: 700; color: var(--dark); line-height: 1.2; font-family: 'Outfit', sans-serif;" th:text="${stats.normales}">0</span>
+                    <span class="stat-label" style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 500;">A Tiempo (Normal)</span>
+                </div>
+            </div>
+
+            <!-- Atrasos -->
+            <div class="stat-card" style="background-color: var(--card-bg); border-radius: var(--radius-md); border: 1px solid var(--border-color); padding: 1.5rem; display: flex; align-items: center; gap: 1.25rem; box-shadow: var(--shadow-sm); transition: var(--transition);">
+                <div class="stat-icon" style="width: 54px; height: 54px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font-size: 1.5rem; background-color: rgba(245, 158, 11, 0.1); color: var(--warning);">
+                    <i class="fa-solid fa-clock"></i>
+                </div>
+                <div class="stat-info" style="display: flex; flex-direction: column;">
+                    <span class="stat-value" style="font-size: 1.75rem; font-weight: 700; color: var(--dark); line-height: 1.2; font-family: 'Outfit', sans-serif;" th:text="${stats.atrasos}">0</span>
+                    <span class="stat-label" style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 500;">Con Atraso</span>
+                </div>
+            </div>
+
+            <!-- Incompletas -->
+            <div class="stat-card" style="background-color: var(--card-bg); border-radius: var(--radius-md); border: 1px solid var(--border-color); padding: 1.5rem; display: flex; align-items: center; gap: 1.25rem; box-shadow: var(--shadow-sm); transition: var(--transition);">
+                <div class="stat-icon" style="width: 54px; height: 54px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font-size: 1.5rem; background-color: rgba(239, 68, 68, 0.1); color: var(--danger);">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                </div>
+                <div class="stat-info" style="display: flex; flex-direction: column;">
+                    <span class="stat-value" style="font-size: 1.75rem; font-weight: 700; color: var(--dark); line-height: 1.2; font-family: 'Outfit', sans-serif;" th:text="${stats.incompletas}">0</span>
+                    <span class="stat-label" style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 500;">Incompletas</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid-stats" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-bottom: 2.5rem;">
+            <!-- Promedio de Horas Trabajadas -->
+            <div class="stat-card" style="background-color: var(--card-bg); border-radius: var(--radius-md); border: 1px solid var(--border-color); padding: 1.5rem; display: flex; align-items: center; gap: 1.25rem; box-shadow: var(--shadow-sm); transition: var(--transition);">
+                <div class="stat-icon" style="width: 54px; height: 54px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font-size: 1.5rem; background-color: rgba(79, 70, 229, 0.1); color: var(--primary);">
+                    <i class="fa-solid fa-briefcase"></i>
+                </div>
+                <div class="stat-info" style="display: flex; flex-direction: column;">
+                    <span class="stat-value" style="font-size: 1.75rem; font-weight: 700; color: var(--dark); line-height: 1.2; font-family: 'Outfit', sans-serif;" th:text="${stats.promedioHoras} + ' hs'">0.0 hs</span>
+                    <span class="stat-label" style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 500;">Promedio Diario Trabajado</span>
+                </div>
+            </div>
+
+            <!-- Total Minutos de Atrasos -->
+            <div class="stat-card" style="background-color: var(--card-bg); border-radius: var(--radius-md); border: 1px solid var(--border-color); padding: 1.5rem; display: flex; align-items: center; gap: 1.25rem; box-shadow: var(--shadow-sm); transition: var(--transition);">
+                <div class="stat-icon" style="width: 54px; height: 54px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font-size: 1.5rem; background-color: rgba(239, 68, 68, 0.1); color: var(--danger);">
+                    <i class="fa-solid fa-hourglass-half"></i>
+                </div>
+                <div class="stat-info" style="display: flex; flex-direction: column;">
+                    <span class="stat-value" style="font-size: 1.75rem; font-weight: 700; color: var(--dark); line-height: 1.2; font-family: 'Outfit', sans-serif;" th:text="${stats.totalMinutosAtraso} + ' min'">0 min</span>
+                    <span class="stat-label" style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 500;">Total Minutos Fuera de Horario</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Detail Layout -->
+        <div class="grid-details" style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem;">
+            <!-- Left Info Card -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title"><i class="fa-solid fa-circle-info" style="color: var(--primary); margin-right: 0.5rem;"></i> Políticas de Horario Laboral</h3>
+                </div>
+                <p style="color: var(--text-secondary); margin-bottom: 1.5rem; line-height: 1.6;">
+                    El sistema calcula automáticamente los atrasos de entrada, salidas tempranas de almuerzo, atrasos de regreso de almuerzo y salidas tempranas laborales según los siguientes límites de horario vigentes:
+                </p>
+                <ul class="schedule-list" style="list-style: none; display: flex; flex-direction: column; gap: 0.75rem;">
+                    <li class="schedule-item" style="display: flex; justify-content: space-between; align-items: center; padding: 0.65rem 1rem; border-radius: var(--radius-sm); background-color: var(--bg-body); border: 1px solid var(--border-color);">
+                        <span style="font-weight: 500;"><i class="fa-solid fa-arrow-right-to-bracket" style="color: var(--success); margin-right: 0.5rem;"></i> Entrada al Trabajo</span>
+                        <span class="schedule-time" style="font-family: 'Outfit', sans-serif; font-weight: 700; color: var(--primary); font-size: 1rem;">07:00 AM (Lun-Sáb)</span>
+                    </li>
+                    <li class="schedule-item" style="display: flex; justify-content: space-between; align-items: center; padding: 0.65rem 1rem; border-radius: var(--radius-sm); background-color: var(--bg-body); border: 1px solid var(--border-color);">
+                        <span style="font-weight: 500;"><i class="fa-solid fa-mug-hot" style="color: #3b82f6; margin-right: 0.5rem;"></i> 1er Descanso (Descontado)</span>
+                        <span class="schedule-time" style="font-family: 'Outfit', sans-serif; font-weight: 700; color: #3b82f6; font-size: 1rem;">09:00 AM - 09:30 AM</span>
+                    </li>
+                    <li class="schedule-item" style="display: flex; justify-content: space-between; align-items: center; padding: 0.65rem 1rem; border-radius: var(--radius-sm); background-color: var(--bg-body); border: 1px solid var(--border-color);">
+                        <span style="font-weight: 500;"><i class="fa-solid fa-utensils" style="color: var(--warning); margin-right: 0.5rem;"></i> Almuerzo (Lun-Vie)</span>
+                        <span class="schedule-time" style="font-family: 'Outfit', sans-serif; font-weight: 700; color: var(--primary); font-size: 1rem;">12:00 PM - 13:00 PM</span>
+                    </li>
+                    <li class="schedule-item" style="display: flex; justify-content: space-between; align-items: center; padding: 0.65rem 1rem; border-radius: var(--radius-sm); background-color: var(--bg-body); border: 1px solid var(--border-color);">
+                        <span style="font-weight: 500;"><i class="fa-solid fa-mug-hot" style="color: #3b82f6; margin-right: 0.5rem;"></i> 2do Descanso (Descontado)</span>
+                        <span class="schedule-time" style="font-family: 'Outfit', sans-serif; font-weight: 700; color: #3b82f6; font-size: 1rem;">15:00 PM - 15:30 PM</span>
+                    </li>
+                    <li class="schedule-item" style="display: flex; justify-content: space-between; align-items: center; padding: 0.65rem 1rem; border-radius: var(--radius-sm); background-color: var(--bg-body); border: 1px solid var(--border-color);">
+                        <span style="font-weight: 500;"><i class="fa-solid fa-arrow-right-from-bracket" style="color: var(--danger); margin-right: 0.5rem;"></i> Salida (Lun - Jue)</span>
+                        <span class="schedule-time" style="font-family: 'Outfit', sans-serif; font-weight: 700; color: var(--danger); font-size: 1rem;">16:30 PM</span>
+                    </li>
+                    <li class="schedule-item" style="display: flex; justify-content: space-between; align-items: center; padding: 0.65rem 1rem; border-radius: var(--radius-sm); background-color: var(--bg-body); border: 1px solid var(--border-color);">
+                        <span style="font-weight: 500;"><i class="fa-solid fa-arrow-right-from-bracket" style="color: var(--danger); margin-right: 0.5rem;"></i> Salida (Viernes)</span>
+                        <span class="schedule-time" style="font-family: 'Outfit', sans-serif; font-weight: 700; color: var(--danger); font-size: 1rem;">16:00 PM</span>
+                    </li>
+                    <li class="schedule-item" style="display: flex; justify-content: space-between; align-items: center; padding: 0.65rem 1rem; border-radius: var(--radius-sm); background-color: var(--bg-body); border: 1px solid var(--border-color);">
+                        <span style="font-weight: 500;"><i class="fa-solid fa-arrow-right-from-bracket" style="color: var(--danger); margin-right: 0.5rem;"></i> Salida (Sábado)</span>
+                        <span class="schedule-time" style="font-family: 'Outfit', sans-serif; font-weight: 700; color: var(--danger); font-size: 1rem;">11:30 AM (Sin Almuerzo)</span>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Right Actions Card -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title"><i class="fa-solid fa-bolt" style="color: var(--warning); margin-right: 0.5rem;"></i> Acciones Rápidas</h3>
+                </div>
+                <div class="quick-actions" style="display: flex; flex-direction: column; gap: 0.75rem;">
+                    <a href="/marcaciones/upload" class="btn btn-primary" style="width: 100%;">
+                        <i class="fa-solid fa-file-arrow-up"></i> Cargar Archivo .PEM / .TXT
+                    </a>
+                    <a href="/marcaciones/nuevo" class="btn btn-secondary" style="width: 100%;">
+                        <i class="fa-solid fa-user-plus"></i> Marcaci&oacute;n Manual
+                    </a>
+                    <a href="/marcaciones" class="btn btn-secondary" style="width: 100%;">
+                        <i class="fa-solid fa-table-list"></i> Ver Registros
+                    </a>
+                    <a href="/marcaciones/ejemplo" class="btn btn-secondary" style="width: 100%; color: var(--secondary);">
+                        <i class="fa-solid fa-download"></i> Descargar Plantilla .PEM
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Layout Scripts -->
+    <th:block th:replace="~{layout :: scripts}"></th:block>
+</body>
+</html>
