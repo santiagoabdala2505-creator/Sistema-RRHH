@@ -497,14 +497,19 @@
                 // Coma decimal: 133333,333 -> 133333.333
                 val = val.replace(',', '.');
             } else if (val.indexOf('.') !== -1) {
-                // Solo puntos: verificar si son separadores de miles
+                // Solo puntos: verificar si son separadores de miles o punto decimal
                 const parts = val.split('.');
                 if (parts.length > 2) {
                     // Múltiples puntos: 1.000.000 -> 1000000
                     val = val.replace(/\./g, '');
-                } else if (parts.length === 2 && parts[1].length === 3 && parts[0].length >= 1) {
-                    // Ejemplo: 40.000 o 715.000 -> separador de miles
-                    val = val.replace(/\./g, '');
+                } else if (parts.length === 2) {
+                    // Un solo punto:
+                    // Si la parte entera tiene más de 3 dígitos (ej: 183333.333), NUNCA es separador de miles; es un punto decimal.
+                    // Si la parte decimal no tiene 3 dígitos (ej: 19.5, 0.5, 183333.33), es decimal.
+                    // Solo si tiene de 1 a 3 dígitos antes y exactamente 3 dígitos después (ej: 40.000 o 185.000) se considera miles.
+                    if (parts[0].length >= 1 && parts[0].length <= 3 && parts[1].length === 3) {
+                        val = val.replace(/\./g, '');
+                    }
                 }
             }
             let v = parseFloat(val);

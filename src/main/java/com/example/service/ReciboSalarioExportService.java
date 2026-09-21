@@ -121,15 +121,24 @@ public class ReciboSalarioExportService {
 
                     double he = d.getTotalHorasExtras() != null ? d.getTotalHorasExtras() : 0.0;
                     double impHe = d.getImporteHoraExtra() != null ? d.getImporteHoraExtra() : 0.0;
-                    double montoHe = he * impHe;
+                    double montoHe = Math.round(he * impHe);
                     overtimeMontoMap.put(cedula, overtimeMontoMap.getOrDefault(cedula, 0.0) + montoHe);
 
                     double dJornal = d.getJornal() != null ? d.getJornal() : 0.0;
+                    if (dJornal > 2000000 && d.getGrossPay() != null && d.getGrossPay() > 0 && dJornal > d.getGrossPay()) {
+                        dJornal = dJornal / 1000.0;
+                    }
                     double dDias = d.getTotalDias() != null ? d.getTotalDias() : 0.0;
                     double dImpDom = d.getImporteDomingo() != null ? d.getImporteDomingo() : 0.0;
                     double dBaseSal = (dJornal > 0 && dDias > 0)
                             ? Math.round((dDias * dJornal) + dImpDom)
-                            : (d.getGrossPay() != null ? Math.max(0.0, Math.round(d.getGrossPay()) - Math.round(montoHe)) : 0.0);
+                            : (d.getGrossPay() != null ? Math.max(0.0, Math.round(d.getGrossPay()) - montoHe) : 0.0);
+                    if (d.getGrossPay() != null && d.getGrossPay() > 0) {
+                        double exp = Math.max(0.0, Math.round(d.getGrossPay()) - montoHe);
+                        if (Math.abs(dBaseSal - exp) <= 15) {
+                            dBaseSal = exp;
+                        }
+                    }
                     baseSalaryMontoMap.put(cedula, baseSalaryMontoMap.getOrDefault(cedula, 0.0) + dBaseSal);
 
                     PlanillaDetalle cons = consMap.get(cedula);
@@ -138,7 +147,7 @@ public class ReciboSalarioExportService {
                         cons.setCedula(cedula);
                         cons.setNombre(d.getNombre());
                         cons.setMetodoPago(d.getMetodoPago() != null ? d.getMetodoPago() : "BANCO");
-                        cons.setJornal(d.getJornal());
+                        cons.setJornal(dJornal);
                         cons.setImporteDomingo(dImpDom);
                         cons.setTotalDias(d.getTotalDias() != null ? d.getTotalDias() : 0.0);
                         cons.setCantidadHoraSem(d.getCantidadHoraSem() != null ? d.getCantidadHoraSem() : 0.0);
@@ -158,8 +167,8 @@ public class ReciboSalarioExportService {
                         cons.setCantidadHoraSem((cons.getCantidadHoraSem() != null ? cons.getCantidadHoraSem() : 0.0) + (d.getCantidadHoraSem() != null ? d.getCantidadHoraSem() : 0.0));
                         cons.setTotalHorasExtras((cons.getTotalHorasExtras() != null ? cons.getTotalHorasExtras() : 0.0) + he);
                         cons.setImporteDomingo((cons.getImporteDomingo() != null ? cons.getImporteDomingo() : 0.0) + dImpDom);
-                        if (d.getJornal() != null && d.getJornal() > 0) {
-                            cons.setJornal(d.getJornal());
+                        if (dJornal > 0) {
+                            cons.setJornal(dJornal);
                         }
                         
                         // Sumar montos de ingresos y descuentos
@@ -369,6 +378,11 @@ public class ReciboSalarioExportService {
         double horasExtrasDiurnasMonto = Math.round(totalHorasExtras * importeHoraExtra);
 
         double jornal = d.getJornal() != null ? d.getJornal() : 0.0;
+        // Corrección de seguridad: si el jornal fue guardado con el punto decimal removido (ej: 183333333 en vez de 183333.333)
+        if (jornal > 2000000 && d.getGrossPay() != null && d.getGrossPay() > 0 && jornal > d.getGrossPay()) {
+            jornal = jornal / 1000.0;
+        }
+
         double impDom = d.getImporteDomingo() != null ? d.getImporteDomingo() : 0.0;
         double salarioBasico = 0.0;
 
@@ -380,19 +394,30 @@ public class ReciboSalarioExportService {
             salarioBasico = Math.round((totalDiasVal * jornal) + impDom);
         }
 
+        // Si existe grossPay y la diferencia con salarioBasico es insignificante (redondeo por decimales del jornal, ej: <= 15 Gs)
+        if (d.getGrossPay() != null && d.getGrossPay() > 0) {
+            double expectedBasicoFromGross = Math.max(0.0, Math.round(d.getGrossPay()) - horasExtrasDiurnasMonto);
+            if (Math.abs(salarioBasico - expectedBasicoFromGross) <= 15) {
+                salarioBasico = expectedBasicoFromGross;
+            }
+        }
+
         double horasExtrasNocturnasMonto = 0.0;
         double gratificaciones = d.getColaboracion() != null ? Math.round(d.getColaboracion()) : 0.0;
         double complementoSalarial = d.getAnticipo() != null ? Math.round(d.getAnticipo()) : 0.0;
         double otrosIngresos = 0.0;
 
+        // Recalcular total de ingresos a partir de los importes enteros redondeados
         double totalIngresos = salarioBasico + horasExtrasDiurnasMonto + horasExtrasNocturnasMonto + gratificaciones + complementoSalarial + otrosIngresos;
 
         double anticiposSalario = d.getDescManual() != null ? Math.round(d.getDescManual()) : 0.0;
         double embargos = d.getDescuentos() != null ? Math.round(d.getDescuentos()) : 0.0;
-        double ips = d.getIps() != null && d.getIps() > 0 ? Math.round(d.getIps()) : Math.round(totalIngresos * 0.09);
+        double ips = (d.getIps() != null && d.getIps() > 0) ? Math.round(d.getIps()) : Math.round(totalIngresos * 0.09);
         double otrosDescuentos = 0.0;
 
+        // Recalcular total de egresos a partir de los importes enteros redondeados
         double totalEgresos = anticiposSalario + embargos + ips + otrosDescuentos;
+        // Recalcular neto a partir de los importes enteros para que el recibo cuadre exactamente
         double totalNeto = totalIngresos - totalEgresos;
 
         // ─────────────────────────────────────────────────────────────────────────

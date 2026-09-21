@@ -345,7 +345,11 @@ public class PlanillaCabeceraService {
         if (d.getViernes() == null) d.setViernes(0.0);
         if (d.getSabado() == null) d.setSabado(0.0);
         if (d.getDomingo() == null) d.setDomingo(0.0);
-        if (d.getJornal() == null) d.setJornal(0.0);
+        if (d.getJornal() == null) {
+            d.setJornal(0.0);
+        } else if (d.getJornal() > 2000000.0 && d.getGrossPay() != null && d.getGrossPay() > 0 && d.getJornal() > d.getGrossPay()) {
+            d.setJornal(d.getJornal() / 1000.0);
+        }
         if (d.getHeLunes() == null) d.setHeLunes(0.0);
         if (d.getHeMartes() == null) d.setHeMartes(0.0);
         if (d.getHeMiercoles() == null) d.setHeMiercoles(0.0);
