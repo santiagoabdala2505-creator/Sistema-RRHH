@@ -33,6 +33,6 @@ public enum PunteroEnum {
 
     public static String normalizeCedula(String cedula) {
         if (cedula == null) return "";
-        return cedula.trim().replaceFirst("^0+", "");
+        return cedula.replace(".", "").replace(" ", "").trim().replaceFirst("^0+", "");
     }
 }

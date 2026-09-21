@@ -385,10 +385,10 @@ public class PlanillaCabeceraService {
         // Obtener marcaciones de la semana
         List<Marcacion> marcaciones = marcacionRepository.findByFechaBetween(desde, hasta);
 
-        // Agrupar marcaciones por cédula
+        // Agrupar marcaciones por cédula normalizada
         Map<String, List<Marcacion>> marcacionesPorCedula = marcaciones.stream()
                 .filter(m -> m.getCedula() != null)
-                .collect(Collectors.groupingBy(Marcacion::getCedula));
+                .collect(Collectors.groupingBy(m -> com.example.domain.PunteroEnum.normalizeCedula(m.getCedula())));
 
         // Obtener todos los empleados configurados
         List<EmpleadoSalario> empleados = empleadoSalarioRepository.findAll();
@@ -404,8 +404,9 @@ public class PlanillaCabeceraService {
             double jornalCalculado = emp.getPagoHoraNormal() * 8.0;
             d.setJornal(jornalCalculado > 0 ? jornalCalculado : 120000.0);
 
-            // Obtener marcaciones del empleado en esta semana
-            List<Marcacion> marcacionesSemana = marcacionesPorCedula.getOrDefault(emp.getCedula(), new ArrayList<>());
+            // Obtener marcaciones del empleado en esta semana (usando cédula normalizada)
+            List<Marcacion> marcacionesSemana = marcacionesPorCedula.getOrDefault(
+                    com.example.domain.PunteroEnum.normalizeCedula(emp.getCedula()), new ArrayList<>());
             double totalHorasSemanales = 0.0;
 
             for (Marcacion m : marcacionesSemana) {

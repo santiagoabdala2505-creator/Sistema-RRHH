@@ -32,37 +32,43 @@ public class EmpleadoSalarioService {
         LocalDate end = (endDate != null) ? endDate : LocalDate.of(2100, 12, 31);
         List<Marcacion> marcaciones = marcacionRepository.findByFechaBetween(start, end);
 
-        // 2. Agrupar horas normales y horas extras por cédula
+        // 2. Agrupar horas normales y horas extras por cédula normalizada
         Map<String, Double> normalHoursMap = new HashMap<>();
         Map<String, Double> extraHoursMap = new HashMap<>();
         Map<String, String> namesMap = new HashMap<>();
 
         for (Marcacion m : marcaciones) {
-            String cedula = m.getCedula();
-            namesMap.put(cedula, m.getNombre());
-            normalHoursMap.put(cedula, normalHoursMap.getOrDefault(cedula, 0.0) + (m.getHorasTrabajadas() != null ? m.getHorasTrabajadas() : 0.0));
-            extraHoursMap.put(cedula, extraHoursMap.getOrDefault(cedula, 0.0) + (m.getHorasExtras() != null ? m.getHorasExtras() : 0.0));
+            String norm = com.example.domain.PunteroEnum.normalizeCedula(m.getCedula());
+            if (norm.isEmpty()) continue;
+            namesMap.put(norm, m.getNombre());
+            normalHoursMap.put(norm, normalHoursMap.getOrDefault(norm, 0.0) + (m.getHorasTrabajadas() != null ? m.getHorasTrabajadas() : 0.0));
+            extraHoursMap.put(norm, extraHoursMap.getOrDefault(norm, 0.0) + (m.getHorasExtras() != null ? m.getHorasExtras() : 0.0));
         }
 
-        // 3. Obtener configuraciones de salario de la BD
+        // 3. Obtener configuraciones de salario de la BD y mapear por cédula normalizada
         List<EmpleadoSalario> configs = repository.findAll();
-        Map<String, EmpleadoSalario> configMap = configs.stream()
-                .collect(Collectors.toMap(EmpleadoSalario::getCedula, c -> c));
+        Map<String, EmpleadoSalario> configMap = new HashMap<>();
+        for (EmpleadoSalario c : configs) {
+            String norm = com.example.domain.PunteroEnum.normalizeCedula(c.getCedula());
+            if (!norm.isEmpty() && !configMap.containsKey(norm)) {
+                configMap.put(norm, c);
+            }
+        }
 
         List<EmpleadoSalarioDTO> dtos = new ArrayList<>();
 
-        // 4. Crear DTOs para cada empleado único encontrado en las marcaciones o en las configuraciones
-        Set<String> allCedulas = new HashSet<>();
-        allCedulas.addAll(namesMap.keySet());
-        allCedulas.addAll(configMap.keySet());
+        // 4. Crear DTOs para cada empleado único (por cédula normalizada)
+        Set<String> allNormCedulas = new HashSet<>();
+        allNormCedulas.addAll(namesMap.keySet());
+        allNormCedulas.addAll(configMap.keySet());
 
-        for (String cedula : allCedulas) {
-            if (cedula == null || cedula.trim().isEmpty()) {
+        for (String normCedula : allNormCedulas) {
+            if (normCedula == null || normCedula.trim().isEmpty()) {
                 continue;
             }
 
-            EmpleadoSalario config = configMap.get(cedula);
-            String nombre = namesMap.get(cedula);
+            EmpleadoSalario config = configMap.get(normCedula);
+            String nombre = namesMap.get(normCedula);
             if (nombre == null && config != null) {
                 nombre = config.getNombre();
             }
@@ -70,17 +76,17 @@ public class EmpleadoSalarioService {
             // Si no existe configuración en BD, creamos una automática con valores por defecto
             if (config == null) {
                 config = new EmpleadoSalario();
-                config.setCedula(cedula);
-                config.setNombre(nombre != null ? nombre : "Empleado " + cedula);
+                config.setCedula(normCedula);
+                config.setNombre(nombre != null ? nombre : "Empleado " + normCedula);
                 config = repository.save(config);
-                configMap.put(cedula, config);
+                configMap.put(normCedula, config);
             }
 
-            Double horasNormales = normalHoursMap.getOrDefault(cedula, 0.0);
-            Double horasExtras = extraHoursMap.getOrDefault(cedula, 0.0);
+            Double horasNormales = normalHoursMap.getOrDefault(normCedula, 0.0);
+            Double horasExtras = extraHoursMap.getOrDefault(normCedula, 0.0);
 
             EmpleadoSalarioDTO dto = new EmpleadoSalarioDTO();
-            dto.setCedula(cedula);
+            dto.setCedula(config.getCedula());
             dto.setNombre(config.getNombre());
             dto.setPagoHoraNormal(config.getPagoHoraNormal());
             dto.setPagoHoraExtra(config.getPagoHoraExtra());

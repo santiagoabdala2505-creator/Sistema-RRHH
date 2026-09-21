@@ -38,10 +38,8 @@ public class DataInitializer implements CommandLineRunner {
         empleados.put("6.153.796", "LAURO BENITEZ FLORES");
         empleados.put("6.829.118", "TOBIAS ALBERTO BRITEZ ESPINOLA");
         empleados.put("3.534.749", "VICENTE TROCHE SALINAS");
-        // Para resolver la duplicación exacta de cédula de Cristian y Lázaro (6.809.024), 
-        // usamos un espacio invisible al final de la segunda para independizarla en BD.
         empleados.put("6.809.024", "CRISTIAN RAMON DIAZ VILLALBA");
-        empleados.put("6.809.024 ", "LAZARO DOMINGUEZ BUSTO");
+        empleados.put("7.016.505", "LAZARO DOMINGUEZ BUSTO");
         empleados.put("4.485.035", "HILARIO RAMON PEREIRA ACOSTA");
         
         // --- Segundo Grupo de Capturas ---
