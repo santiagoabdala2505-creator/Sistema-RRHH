@@ -111,6 +111,7 @@ public class ReciboSalarioExportService {
             // Agrupar y sumarizar detalles por empleado (cédula)
             Map<String, PlanillaDetalle> consMap = new LinkedHashMap<>();
             Map<String, Double> overtimeMontoMap = new HashMap<>();
+            Map<String, Double> baseSalaryMontoMap = new HashMap<>();
 
             for (PlanillaCabecera p : planillas) {
                 if (p.getDetalles() == null) continue;
@@ -123,12 +124,22 @@ public class ReciboSalarioExportService {
                     double montoHe = he * impHe;
                     overtimeMontoMap.put(cedula, overtimeMontoMap.getOrDefault(cedula, 0.0) + montoHe);
 
+                    double dJornal = d.getJornal() != null ? d.getJornal() : 0.0;
+                    double dDias = d.getTotalDias() != null ? d.getTotalDias() : 0.0;
+                    double dImpDom = d.getImporteDomingo() != null ? d.getImporteDomingo() : 0.0;
+                    double dBaseSal = (dJornal > 0 && dDias > 0)
+                            ? Math.round((dDias * dJornal) + dImpDom)
+                            : (d.getGrossPay() != null ? Math.max(0.0, Math.round(d.getGrossPay()) - Math.round(montoHe)) : 0.0);
+                    baseSalaryMontoMap.put(cedula, baseSalaryMontoMap.getOrDefault(cedula, 0.0) + dBaseSal);
+
                     PlanillaDetalle cons = consMap.get(cedula);
                     if (cons == null) {
                         cons = new PlanillaDetalle();
                         cons.setCedula(cedula);
                         cons.setNombre(d.getNombre());
                         cons.setMetodoPago(d.getMetodoPago() != null ? d.getMetodoPago() : "BANCO");
+                        cons.setJornal(d.getJornal());
+                        cons.setImporteDomingo(dImpDom);
                         cons.setTotalDias(d.getTotalDias() != null ? d.getTotalDias() : 0.0);
                         cons.setCantidadHoraSem(d.getCantidadHoraSem() != null ? d.getCantidadHoraSem() : 0.0);
                         cons.setTotalHorasExtras(he);
@@ -146,6 +157,10 @@ public class ReciboSalarioExportService {
                         cons.setTotalDias((cons.getTotalDias() != null ? cons.getTotalDias() : 0.0) + (d.getTotalDias() != null ? d.getTotalDias() : 0.0));
                         cons.setCantidadHoraSem((cons.getCantidadHoraSem() != null ? cons.getCantidadHoraSem() : 0.0) + (d.getCantidadHoraSem() != null ? d.getCantidadHoraSem() : 0.0));
                         cons.setTotalHorasExtras((cons.getTotalHorasExtras() != null ? cons.getTotalHorasExtras() : 0.0) + he);
+                        cons.setImporteDomingo((cons.getImporteDomingo() != null ? cons.getImporteDomingo() : 0.0) + dImpDom);
+                        if (d.getJornal() != null && d.getJornal() > 0) {
+                            cons.setJornal(d.getJornal());
+                        }
                         
                         // Sumar montos de ingresos y descuentos
                         cons.setGrossPay((cons.getGrossPay() != null ? cons.getGrossPay() : 0.0) + (d.getGrossPay() != null ? d.getGrossPay() : 0.0));
@@ -168,7 +183,7 @@ public class ReciboSalarioExportService {
                 return;
             }
 
-            // Calcular importeHoraExtra ponderado exacto para que importeHoraExtra * totalHorasExtras == totalOvertimeMonto
+            // Calcular importeHoraExtra ponderado y jornal ponderado exactos
             for (Map.Entry<String, PlanillaDetalle> entry : consMap.entrySet()) {
                 String ced = entry.getKey();
                 PlanillaDetalle cons = entry.getValue();
@@ -178,6 +193,13 @@ public class ReciboSalarioExportService {
                     cons.setImporteHoraExtra(totalHeMonto / totalHe);
                 } else {
                     cons.setImporteHoraExtra(0.0);
+                }
+
+                double totalDias = cons.getTotalDias() != null ? cons.getTotalDias() : 0.0;
+                double totalBase = baseSalaryMontoMap.getOrDefault(ced, 0.0);
+                double totalDom = cons.getImporteDomingo() != null ? cons.getImporteDomingo() : 0.0;
+                if (totalDias > 0 && totalBase > 0) {
+                    cons.setJornal((totalBase - totalDom) / totalDias);
                 }
             }
 
@@ -344,27 +366,30 @@ public class ReciboSalarioExportService {
         // ─────────────────────────────────────────────────────────────────────────
         double totalHorasExtras = d.getTotalHorasExtras() != null ? d.getTotalHorasExtras() : 0.0;
         double importeHoraExtra = d.getImporteHoraExtra() != null ? d.getImporteHoraExtra() : 0.0;
-        double horasExtrasDiurnasMonto = totalHorasExtras * importeHoraExtra;
+        double horasExtrasDiurnasMonto = Math.round(totalHorasExtras * importeHoraExtra);
 
+        double jornal = d.getJornal() != null ? d.getJornal() : 0.0;
+        double impDom = d.getImporteDomingo() != null ? d.getImporteDomingo() : 0.0;
         double salarioBasico = 0.0;
-        if (d.getGrossPay() != null && d.getGrossPay() > 0) {
-            salarioBasico = Math.max(0.0, d.getGrossPay() - horasExtrasDiurnasMonto);
+
+        if (jornal > 0 && totalDiasVal > 0) {
+            salarioBasico = Math.round((totalDiasVal * jornal) + impDom);
+        } else if (d.getGrossPay() != null && d.getGrossPay() > 0) {
+            salarioBasico = Math.max(0.0, Math.round(d.getGrossPay()) - horasExtrasDiurnasMonto);
         } else {
-            double jornal = d.getJornal() != null ? d.getJornal() : 0.0;
-            double impDom = d.getImporteDomingo() != null ? d.getImporteDomingo() : 0.0;
-            salarioBasico = (totalDiasVal * jornal) + impDom;
+            salarioBasico = Math.round((totalDiasVal * jornal) + impDom);
         }
 
         double horasExtrasNocturnasMonto = 0.0;
-        double gratificaciones = d.getColaboracion() != null ? d.getColaboracion() : 0.0;
-        double complementoSalarial = d.getAnticipo() != null ? d.getAnticipo() : 0.0;
+        double gratificaciones = d.getColaboracion() != null ? Math.round(d.getColaboracion()) : 0.0;
+        double complementoSalarial = d.getAnticipo() != null ? Math.round(d.getAnticipo()) : 0.0;
         double otrosIngresos = 0.0;
 
         double totalIngresos = salarioBasico + horasExtrasDiurnasMonto + horasExtrasNocturnasMonto + gratificaciones + complementoSalarial + otrosIngresos;
 
-        double anticiposSalario = d.getDescManual() != null ? d.getDescManual() : 0.0;
-        double embargos = d.getDescuentos() != null ? d.getDescuentos() : 0.0;
-        double ips = d.getIps() != null && d.getIps() > 0 ? d.getIps() : Math.round(totalIngresos * 0.09);
+        double anticiposSalario = d.getDescManual() != null ? Math.round(d.getDescManual()) : 0.0;
+        double embargos = d.getDescuentos() != null ? Math.round(d.getDescuentos()) : 0.0;
+        double ips = d.getIps() != null && d.getIps() > 0 ? Math.round(d.getIps()) : Math.round(totalIngresos * 0.09);
         double otrosDescuentos = 0.0;
 
         double totalEgresos = anticiposSalario + embargos + ips + otrosDescuentos;
